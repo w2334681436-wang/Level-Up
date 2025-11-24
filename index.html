@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>LevelUp AI Coach</title>
     
-    <!-- PWA Setup -->
+    <!-- PWA Setup: 启用安装和定义外观 -->
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#0a0a0a" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -89,7 +89,21 @@
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
     <script>
-      // Hide splash screen when React is ready (optional logic, React usually takes over fast)
+      // PWA Service Worker 注册 (修复后的逻辑: 立即执行注册，不等待 DOMContentLoaded)
+      if ('serviceWorker' in navigator) {
+          // 由于 Vite 打包会处理 Service Worker，这里仅进行简单的注册
+          // 立即注册 Service Worker，以最大程度地兼容嵌入式环境
+          navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
+            .then(registration => {
+              console.log('Service Worker 注册成功，作用域: ', registration.scope);
+            })
+            .catch(error => {
+              // 错误修复：不再等待 DOMContentLoaded，直接执行注册。
+              console.error('Service Worker 注册失败: ', error);
+            });
+      }
+
+      // Hide splash screen when React is ready
       window.onload = () => {
         setTimeout(() => {
           const splash = document.getElementById('splash-screen');
