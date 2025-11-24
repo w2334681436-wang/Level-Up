@@ -11,10 +11,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     
-    <!-- 桌面图标：继续使用带黑底的版本 (icon.svg) -->
-    <link rel="apple-touch-icon" href="/icon.svg" />
+    <!-- 【桌面/主屏幕】使用带黑底的新图标 (强制刷新缓存) -->
+    <link rel="apple-touch-icon" href="/icon_desktop.svg" />
     
-    <!-- 浏览器标签图标：使用透明版本 (logo_transparent.svg)，更美观 -->
+    <!-- 【浏览器标签页】使用透明版本 -->
     <link rel="icon" type="image/svg+xml" href="/logo_transparent.svg" />
     
     <!-- Tailwind CSS -->
@@ -89,7 +89,7 @@
     </style>
   </head>
   <body>
-    <!-- 开屏内容：关键修改！这里改用透明图标 -->
+    <!-- 【开屏动画】继续使用透明图标，完美融合背景 -->
     <div id="splash-screen">
        <img src="/logo_transparent.svg" class="splash-icon" alt="Level Up" />
        <div class="loader-bar"></div>
