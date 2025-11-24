@@ -1464,11 +1464,11 @@ export default function LevelUpApp() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(20,20,40,0.4),transparent_70%)] pointer-events-none"></div>
       <div className="absolute inset-0 opacity-5 pointer-events-none mix-blend-overlay" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")` }}></div>
 
-      {/* --- 左侧边栏 (已修改：专注模式下自动收起) --- */}
-      <div className={`hidden md:flex flex-col bg-[#111116] gap-4 overflow-y-auto z-20 h-full relative group scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent transition-all duration-700 ease-in-out ${isZen ? 'w-0 p-0 opacity-0 border-none pointer-events-none' : 'w-96 p-6 border-r border-gray-800 opacity-100'}`}>
+      {/* --- 左侧边栏 (已增强：修复收起时可能残留内容的问题) --- */}
+      <div className={`hidden md:flex flex-col bg-[#111116] gap-4 z-20 h-full relative group scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent transition-all duration-700 ease-in-out ${isZen ? 'w-0 p-0 opacity-0 border-none pointer-events-none overflow-hidden' : 'w-96 p-6 border-r border-gray-800 opacity-100 overflow-y-auto'}`}>
         <div className="absolute inset-0 bg-gradient-to-br from-blue-900/10 via-purple-900/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
         
-        {/* 内容容器：添加 min-w 确保收起过程中内容不会被挤压变形 */}
+        {/* 内容容器：min-w 保持内容宽度，防止挤压 */}
         <div className="min-w-[340px] flex flex-col gap-4">
             <div className="flex justify-between items-start relative z-10 flex-shrink-0">
               <div>
