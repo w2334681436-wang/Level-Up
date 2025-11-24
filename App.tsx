@@ -880,7 +880,84 @@ export default function LevelUpApp() {
   };
 
   const updateGameStats = (seconds) => {
+    const m = Math.floor(seconds / 60);import React, { useState, useEffect, useRef } from 'react';
+
+  useEffect(() => {
+    const checkDailyReview = () => {
+      const lastReviewDate = localStorage.getItem('last_ai_review_date');
+      const today = getTodayDateString();
+      
+      if (lastReviewDate !== today) {
+        const yesterday = getYesterdayDateString();
+        const yesterdayData = history.find(d => d.date === yesterday);
+        
+        if (yesterdayData && yesterdayData.studyMinutes > 0) {
+          const reviewMessage = {
+            role: 'assistant',
+            content: `📊 昨日学习复盘提醒\n\n昨天（${yesterday}）你学习了 ${(yesterdayData.studyMinutes/60).toFixed(1)} 小时，完成了 ${yesterdayData.logs.length} 个学习任务。需要我帮你分析一下学习效果和制定今日计划吗？`
+          };
+          
+          setChatMessages(prev => [...prev, reviewMessage]);
+          saveUnreadMessages(unreadAIMessages + 1);
+          localStorage.setItem('last_ai_review_date', today);
+        }
+      }
+    };
+
+    const now = new Date();
+    const timeUntilNextCheck = (24 * 60 * 60 * 1000) - (now.getHours() * 60 * 60 * 1000 + now.getMinutes() * 60 * 1000 + now.getSeconds() * 1000);
+    
+    const timer = setTimeout(() => {
+      checkDailyReview();
+      setInterval(checkDailyReview, 24 * 60 * 60 * 1000);
+    }, timeUntilNextCheck);
+
+    return () => clearTimeout(timer);
+  }, [history, unreadAIMessages]);
+
+  useEffect(() => { 
+    if (showChatModal) {
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatMessages, showChatModal, aiThinking]);
+
+  useEffect(() => {
+    const handleFsChange = () => { setIsFullscreen(!!document.fullscreenElement); };
+    document.addEventListener("fullscreenchange", handleFsChange);
+    return () => document.removeEventListener("fullscreenchange", handleFsChange);
+  }, []);
+
+  const updateStudyStats = (seconds, log) => {
     const m = Math.floor(seconds / 60);
+    const g = Math.floor(m / 4.5); 
+    const newStats = { 
+      ...todayStats, 
+      studyMinutes: todayStats.studyMinutes + m, 
+      gameBank: todayStats.gameBank + g, 
+      logs: [...todayStats.logs, { time: new Date().toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'}), content: log, duration: m }] 
+    };
+    saveData(newStats);
+    autoUpdateProgress(log, learningProgress); 
+  };
+
+  const updateGameStats = (seconds) => {
+    const m = Math.floor(seconds / 60);
+    saveData({ ...todayStats, gameUsed: todayStats.gameUsed + m, gameBank: Math.max(0, todayStats.gameBank - m) });
+  };
+
+  const switchMode = (newMode) => {
+    setIsActive(false);
+    setIsZen(false);
+    
+    if (newMode === 'gaming') {
+      if (todayStats.gameBank <= 0) {
+        addNotification("⛔ 你的游戏券余额为0！请先去专注学习！", "error");
+        setMode('focus');
+        setInitialTime(45 * 60);
+        setTimeLeft(45 * 60);
+        return;
+      }
+}
     saveData({ ...todayStats, gameUsed: todayStats.gameUsed + m, gameBank: Math.max(0, todayStats.gameBank - m) });
   };
 
@@ -1469,77 +1546,82 @@ export default function LevelUpApp() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(20,20,40,0.4),transparent_70%)] pointer-events-none"></div>
       <div className="absolute inset-0 opacity-5 pointer-events-none mix-blend-overlay" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")` }}></div>
 
-      <div className={`hidden md:flex flex-col w-96 bg-[#111116] border-r border-gray-800 p-6 gap-4 overflow-y-auto z-20 h-full relative group scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent`}>
+      {/* --- 左侧边栏 (已修改：专注模式下自动收起) --- */}
+      <div className={`hidden md:flex flex-col bg-[#111116] gap-4 overflow-y-auto z-20 h-full relative group scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent transition-all duration-700 ease-in-out ${isZen ? 'w-0 p-0 opacity-0 border-none pointer-events-none' : 'w-96 p-6 border-r border-gray-800 opacity-100'}`}>
         <div className="absolute inset-0 bg-gradient-to-br from-blue-900/10 via-purple-900/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
-        <div className="flex justify-between items-start relative z-10 flex-shrink-0">
-          <div>
-            <h1 className="text-3xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 drop-shadow-[0_0_10px_rgba(0,255,255,0.3)]">LEVEL UP!</h1>
-            <p className="text-[10px] text-gray-500 font-mono flex items-center gap-1"><Zap className="w-3 h-3 text-yellow-500"/> CHAT COACH EDITION</p>
-          </div>
-          <button onClick={() => setShowSettings(!showSettings)} className="text-gray-500 hover:text-white transition p-1 hover:bg-gray-800 rounded-full"><Settings className="w-5 h-5" /></button>
-        </div>
-
-        <button onClick={startAICoach} className="w-full relative overflow-hidden group bg-gradient-to-r from-purple-900/50 to-blue-900/50 border border-purple-500/30 hover:border-purple-400 text-white font-bold py-3 rounded-xl shadow-[0_0_20px_rgba(139,92,246,0.2)] flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] flex-shrink-0">
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-400/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
-          <MessageCircle className="w-5 h-5 text-purple-400 group-hover:text-white transition-colors" /> 
-          <span className="relative z-10">进入 AI 导师通信终端</span>
-          {unreadAIMessages > 0 && (
-             <span className="absolute -top-1 -right-1 flex items-center justify-center">
-               <span className="relative inline-flex rounded-full h-4 min-w-[16px] px-1 bg-[#FA5151] text-[10px] text-white justify-center items-center shadow-sm border border-[#111116] leading-none font-sans font-medium">
-                 {unreadAIMessages > 99 ? '99+' : unreadAIMessages}
-               </span>
-             </span>
-          )}
-        </button>
-
-        <button 
-          onClick={() => setShowHistory(true)}
-          className="w-full bg-blue-900/30 border border-blue-500/30 hover:border-blue-400 text-blue-400 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all"
-        >
-          <History className="w-5 h-5" />
-          查看历史记录
-        </button>
-
-        <LearningProgressPanel 
-          learningProgress={learningProgress} 
-          onProgressUpdate={handleProgressUpdate}
-          isMobileView={false}
-        />
-
-        <div className={`rounded-xl p-3 md:p-4 border-l-4 ${stage.borderColor} ${stage.bg} relative overflow-hidden z-0 flex-shrink-0`}>
-          <div className="flex items-center gap-2 mb-1 relative z-10"><Target className={`w-4 h-4 ${stage.color}`} /><span className={`text-xs font-bold ${stage.color} tracking-widest uppercase`}>STAGE: {stage.name}</span></div>
-          <div className="pl-6 relative z-10">
-            <div className="flex justify-between text-xs mb-1 text-gray-400">
-               <span>DAILY TARGET</span>
-               <span className="font-mono flex items-center gap-1">
-                 {customTargetHours && <span className="text-[10px] bg-gray-700 px-1 rounded text-white" title="自定义目标">自定义</span>}
-                 {currentTargetHours}h
-               </span>
-            </div>
-            <div className="h-1.5 w-full bg-black/30 rounded-full overflow-hidden"><div className={`h-full ${stage.color.replace('text', 'bg')} transition-all duration-1000 shadow-[0_0_10px_currentColor]`} style={{ width: `${dailyProgressPercent}%` }}></div></div>
-            <div className="text-[10px] text-gray-500 mt-1 text-right font-mono">{(todayStats.studyMinutes/60).toFixed(1)}h / {currentTargetHours}h</div>
-          </div>
-        </div>
         
-        <div className="flex items-center justify-between px-1 mt-2 mb-1 relative z-0 flex-shrink-0">
-            <span className="text-xs font-bold text-gray-500">TODAY'S LOGS</span>
-            <button 
-              onClick={openManualLog}
-              className="text-[10px] flex items-center gap-1 bg-emerald-900/30 text-emerald-400 border border-emerald-800/50 px-2 py-0.5 rounded hover:bg-emerald-800/50 transition-colors"
-            >
-              <PlusCircle className="w-3 h-3" /> 补录
-            </button>
-        </div>
+        {/* 内容容器：添加 min-w 确保收起过程中内容不会被挤压变形 */}
+        <div className="min-w-[340px] flex flex-col gap-4">
+            <div className="flex justify-between items-start relative z-10 flex-shrink-0">
+              <div>
+                <h1 className="text-3xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 drop-shadow-[0_0_10px_rgba(0,255,255,0.3)]">LEVEL UP!</h1>
+                <p className="text-[10px] text-gray-500 font-mono flex items-center gap-1"><Zap className="w-3 h-3 text-yellow-500"/> CHAT COACH EDITION</p>
+              </div>
+              <button onClick={() => setShowSettings(!showSettings)} className="text-gray-500 hover:text-white transition p-1 hover:bg-gray-800 rounded-full"><Settings className="w-5 h-5" /></button>
+            </div>
 
-        <div className="flex-1 overflow-y-auto min-h-0 space-y-2 pr-1 scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent relative z-0">
-           {todayStats.logs && todayStats.logs.slice().reverse().map((log, i) => (
-             <div key={i} className="bg-[#1a1a20] p-3 rounded border-l-2 border-emerald-500/50 text-xs text-gray-300 relative group hover:bg-[#222228] transition-colors">
-               <div className="flex justify-between text-gray-500 mb-1"><span className="font-mono text-emerald-600">{log.time}</span><span className="text-emerald-500/80">+{log.duration}m XP</span></div>
-               <div className="truncate">{typeof log.content === 'string' ? log.content : 'Log Entry'}</div>
-             </div>
-           ))}
+            <button onClick={startAICoach} className="w-full relative overflow-hidden group bg-gradient-to-r from-purple-900/50 to-blue-900/50 border border-purple-500/30 hover:border-purple-400 text-white font-bold py-3 rounded-xl shadow-[0_0_20px_rgba(139,92,246,0.2)] flex items-center justify-center gap-2 transition-all transform hover:scale-[1.02] flex-shrink-0">
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-400/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+              <MessageCircle className="w-5 h-5 text-purple-400 group-hover:text-white transition-colors" /> 
+              <span className="relative z-10">进入 AI 导师通信终端</span>
+              {unreadAIMessages > 0 && (
+                <span className="absolute -top-1 -right-1 flex items-center justify-center">
+                  <span className="relative inline-flex rounded-full h-4 min-w-[16px] px-1 bg-[#FA5151] text-[10px] text-white justify-center items-center shadow-sm border border-[#111116] leading-none font-sans font-medium">
+                    {unreadAIMessages > 99 ? '99+' : unreadAIMessages}
+                  </span>
+                </span>
+              )}
+            </button>
+
+            <button 
+              onClick={() => setShowHistory(true)}
+              className="w-full bg-blue-900/30 border border-blue-500/30 hover:border-blue-400 text-blue-400 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all"
+            >
+              <History className="w-5 h-5" />
+              查看历史记录
+            </button>
+
+            <LearningProgressPanel 
+              learningProgress={learningProgress} 
+              onProgressUpdate={handleProgressUpdate}
+              isMobileView={false}
+            />
+
+            <div className={`rounded-xl p-3 md:p-4 border-l-4 ${stage.borderColor} ${stage.bg} relative overflow-hidden z-0 flex-shrink-0`}>
+              <div className="flex items-center gap-2 mb-1 relative z-10"><Target className={`w-4 h-4 ${stage.color}`} /><span className={`text-xs font-bold ${stage.color} tracking-widest uppercase`}>STAGE: {stage.name}</span></div>
+              <div className="pl-6 relative z-10">
+                <div className="flex justify-between text-xs mb-1 text-gray-400">
+                  <span>DAILY TARGET</span>
+                  <span className="font-mono flex items-center gap-1">
+                    {customTargetHours && <span className="text-[10px] bg-gray-700 px-1 rounded text-white" title="自定义目标">自定义</span>}
+                    {currentTargetHours}h
+                  </span>
+                </div>
+                <div className="h-1.5 w-full bg-black/30 rounded-full overflow-hidden"><div className={`h-full ${stage.color.replace('text', 'bg')} transition-all duration-1000 shadow-[0_0_10px_currentColor]`} style={{ width: `${dailyProgressPercent}%` }}></div></div>
+                <div className="text-[10px] text-gray-500 mt-1 text-right font-mono">{(todayStats.studyMinutes/60).toFixed(1)}h / {currentTargetHours}h</div>
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-between px-1 mt-2 mb-1 relative z-0 flex-shrink-0">
+                <span className="text-xs font-bold text-gray-500">TODAY'S LOGS</span>
+                <button 
+                  onClick={openManualLog}
+                  className="text-[10px] flex items-center gap-1 bg-emerald-900/30 text-emerald-400 border border-emerald-800/50 px-2 py-0.5 rounded hover:bg-emerald-800/50 transition-colors"
+                >
+                  <PlusCircle className="w-3 h-3" /> 补录
+                </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto min-h-0 space-y-2 pr-1 scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent relative z-0">
+              {todayStats.logs && todayStats.logs.slice().reverse().map((log, i) => (
+                <div key={i} className="bg-[#1a1a20] p-3 rounded border-l-2 border-emerald-500/50 text-xs text-gray-300 relative group hover:bg-[#222228] transition-colors">
+                  <div className="flex justify-between text-gray-500 mb-1"><span className="font-mono text-emerald-600">{log.time}</span><span className="text-emerald-500/80">+{log.duration}m XP</span></div>
+                  <div className="truncate">{typeof log.content === 'string' ? log.content : 'Log Entry'}</div>
+                </div>
+              ))}
+            </div>
         </div>
-      </div>
+      </div>>
 
       <MobileNav 
         mode={mode}
