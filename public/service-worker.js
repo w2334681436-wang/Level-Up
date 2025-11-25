@@ -1,7 +1,7 @@
 // Service Worker: 实施 PWA 基础缓存策略
 
 // 升级版本号到 V6，强制浏览器更新Service Worker和所有缓存
-const CACHE_NAME = 'levelup-cache-v6';
+const CACHE_NAME = 'levelup-cache-v7';
 
 // 应用外壳的核心文件列表。注意：所有文件现在都假定位于 / 路径下（即 public 目录的内容）
 const APP_SHELL_FILES = [
