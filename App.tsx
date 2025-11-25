@@ -474,6 +474,7 @@ export default function LevelUpApp() {
   const [apiModel, setApiModel] = useState('deepseek-ai/DeepSeek-R1');
   const [selectedProvider, setSelectedProvider] = useState('siliconflow');
   const [customPersona, setCustomPersona] = useState(''); 
+  const [customUserBackground, setCustomUserBackground] = useState(''); // 新增：个人背景状态
   const [deepThinkingMode, setDeepThinkingMode] = useState(false); 
   
   const [availableModels, setAvailableModels] = useState([]);
@@ -605,7 +606,9 @@ export default function LevelUpApp() {
       const storedModel = localStorage.getItem('ai_model') || 'deepseek-ai/DeepSeek-R1';
       const storedProvider = localStorage.getItem('ai_provider') || 'siliconflow';
       const storedPersona = localStorage.getItem('ai_persona') || '';
+      const storedUserBackground = localStorage.getItem('user_background') || ''; // 新增：个人背景
       const storedTargetHours = localStorage.getItem('target_hours') ? parseFloat(localStorage.getItem('target_hours')) : null;
+      const storedManualStage = localStorage.getItem('manual_stage'); // 新增：手动阶段
       const storedDeepThinking = localStorage.getItem('deep_thinking_mode') === 'true';
 
       const storedUserColor = localStorage.getItem('user_bubble_color') || '#059669';
@@ -638,7 +641,14 @@ export default function LevelUpApp() {
       setApiModel(storedModel);
       setSelectedProvider(storedProvider);
       setCustomPersona(storedPersona);
+      setCustomUserBackground(storedUserBackground); // 新增状态设置
       setCustomTargetHours(storedTargetHours);
+      // 阶段判断逻辑：如果有手动设置，用手动的；否则用自动计算的
+      if (storedManualStage) {
+        setStage(JSON.parse(storedManualStage));
+      } else {
+        setStage(getStageInfo());
+      }
       setDeepThinkingMode(storedDeepThinking);
       setAvailableModels(storedModelList);
       setChatMessages(storedChat);
@@ -1347,8 +1357,9 @@ export default function LevelUpApp() {
         --- 实时学习数据 ---
         1. 考研目标: 上海交大/中科大AI硕士(2026)。
         2. 每日目标学习时长: ${target}小时。
-        3. 今日(${getTodayDateString()})统计: 已学习 ${(todayStats.studyMinutes / 60).toFixed(1)}h, 游戏券余额 ${todayStats.gameBank}m。
-        4. 学习进度板 (最新的学习内容和状态):
+        3. 个人背景档案: ${customUserBackground || '未填写'}
+        4. 今日(${getTodayDateString()})统计: 已学习 ${(todayStats.studyMinutes / 60).toFixed(1)}h, 游戏券余额 ${todayStats.gameBank}m。
+        5. 学习进度板 (最新的学习内容和状态):
            - 英语: ${learningProgress.english.content || '暂无记录'} (更新于 ${learningProgress.english.lastUpdate})
            - 政治: ${learningProgress.politics.content || '暂无记录'} (更新于 ${learningProgress.politics.lastUpdate})
            - 数学: ${learningProgress.math.content || '暂无记录'} (更新于 ${learningProgress.math.lastUpdate})
@@ -1472,8 +1483,8 @@ export default function LevelUpApp() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(20,20,40,0.4),transparent_70%)] pointer-events-none"></div>
       <div className="absolute inset-0 opacity-5 pointer-events-none mix-blend-overlay" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")` }}></div>
 
-      {/* --- 左侧边栏 (已增强：修复收起时可能残留内容的问题) --- */}
-      <div className={`hidden md:flex flex-col bg-[#111116] gap-4 z-20 h-full relative group scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent transition-all duration-700 ease-in-out ${isZen ? 'w-0 min-w-0 p-0 opacity-0 border-none pointer-events-none overflow-hidden' : 'w-96 p-6 border-r border-gray-800 opacity-100 overflow-y-auto'}`}>
+      {/* --- 左侧边栏 (动画优化：duration-500 + ease-out 更轻快) --- */}
+      <div className={`hidden md:flex flex-col bg-[#111116] gap-4 z-20 h-full relative group scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isZen ? 'w-0 min-w-0 p-0 opacity-0 border-none pointer-events-none overflow-hidden' : 'w-96 p-6 border-r border-gray-800 opacity-100 overflow-y-auto'}`}>
         <div className="absolute inset-0 bg-gradient-to-br from-blue-900/10 via-purple-900/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
         
         {/* 内容容器：min-w 保持内容宽度，防止挤压 */}
@@ -1753,25 +1764,7 @@ export default function LevelUpApp() {
               </div>
             )}
             
-            {!isZen && (
-             <button 
-               onClick={() => {
-                   setIsActive(false);
-                   const newTimeLeft = initialTime;
-                   setTimeLeft(newTimeLeft);
-                   saveTimerState(false, newTimeLeft, initialTime, mode);
-               }}
-               disabled={mode === 'gaming'}
-               className={`absolute bottom-4 right-4 md:static w-12 h-12 rounded-full border flex items-center justify-center transition-all touch-manipulation ${
-                 mode === 'gaming' 
-                   ? 'bg-gray-800/30 border-gray-700 text-gray-600 cursor-not-allowed' 
-                   : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:text-white hover:border-gray-500'
-               }`}
-               title={mode === 'gaming' ? "游戏模式下不可重置" : "重置计时"}
-             >
-               <RotateCcw className="w-4 h-4" />
-             </button>
-            )}
+           {/* 重置按钮已删除 */}
           </div>
         </div>
       </div>
@@ -2075,6 +2068,52 @@ export default function LevelUpApp() {
                       placeholder={DEFAULT_PERSONA}
                       className="w-full bg-black/50 border border-purple-500/30 rounded-lg p-3 text-white outline-none focus:border-purple-500 text-sm min-h-[80px] resize-none"
                     />
+                  </div>
+                 {/* 新增：个人背景设置 */}
+                  <div className="bg-indigo-900/20 p-4 rounded-xl border border-indigo-500/30">
+                    <h3 className="text-indigo-400 font-bold mb-3 flex items-center gap-2 text-sm"><User className="w-4 h-4"/> 个人背景档案</h3>
+                    <textarea 
+                      value={customUserBackground}
+                      onChange={(e) => {
+                        setCustomUserBackground(e.target.value);
+                        localStorage.setItem('user_background', e.target.value);
+                      }}
+                      placeholder="告诉导师你的背景（例如：双非跨考985、英语基础薄弱、在职备考...）"
+                      className="w-full bg-black/50 border border-indigo-500/30 rounded-lg p-3 text-white outline-none focus:border-indigo-500 text-sm min-h-[80px] resize-none"
+                    />
+                  </div>
+
+                  {/* 新增：阶段手动调整 */}
+                  <div className="bg-orange-900/20 p-4 rounded-xl border border-orange-500/30">
+                    <div className="flex justify-between items-center mb-3">
+                      <h3 className="text-orange-400 font-bold flex items-center gap-2 text-sm"><Target className="w-4 h-4"/> 当前备考阶段</h3>
+                      <button onClick={() => {
+                        localStorage.removeItem('manual_stage');
+                        setStage(getStageInfo());
+                        addNotification("已恢复为自动时间判断", "success");
+                      }} className="text-xs text-gray-400 underline hover:text-white transition">恢复自动 (根据时间)</button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { name: "基础夯实期", desc: "地毯式复习 / 英语单词", targetHours: 7, color: "text-emerald-400", borderColor: "border-emerald-500", bg: "bg-emerald-500/10" },
+                        { name: "强化提升期", desc: "海量刷题 / 攻克难点", targetHours: 9, color: "text-yellow-400", borderColor: "border-yellow-500", bg: "bg-yellow-500/10" },
+                        { name: "真题实战期", desc: "真题模拟 / 查缺补漏", targetHours: 10, color: "text-orange-400", borderColor: "border-orange-500", bg: "bg-orange-500/10" },
+                        { name: "全真模拟期", desc: "心态调整 / 考场适应", targetHours: 6, color: "text-cyan-400", borderColor: "border-cyan-500", bg: "bg-cyan-500/10" },
+                        { name: "终极冲刺期", desc: "背水一战 / 回归基础", targetHours: 11, color: "text-pink-500", borderColor: "border-pink-500", bg: "bg-pink-500/10" }
+                      ].map((s) => (
+                        <button 
+                          key={s.name}
+                          onClick={() => {
+                            setStage(s);
+                            localStorage.setItem('manual_stage', JSON.stringify(s));
+                          }}
+                          className={`p-2 rounded-lg border text-left transition-all ${stage.name === s.name ? `${s.bg} ${s.borderColor} ring-1 ring-offset-1 ring-offset-[#111] ring-white` : 'bg-black/30 border-gray-700 hover:bg-gray-800'}`}
+                        >
+                          <div className={`text-xs font-bold ${s.color}`}>{s.name}</div>
+                          <div className="text-[10px] text-gray-500 truncate">{s.desc}</div>
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="bg-blue-900/20 p-4 rounded-xl border border-blue-500/30">
