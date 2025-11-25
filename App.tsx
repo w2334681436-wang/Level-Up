@@ -14,7 +14,35 @@ import {
   Calendar,
   Palette
 } from 'lucide-react';
+// --- 新增：请求通知权限 ---
+const requestNotificationPermission = () => {
+  if ('Notification' in window && Notification.permission !== 'granted') {
+    Notification.requestPermission();
+  }
+};
 
+// --- 新增：发送通知工具 ---
+const sendNotification = (title, body) => {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    // 尝试在 Service Worker 中显示通知（移动端更稳定）
+    if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
+      navigator.serviceWorker.ready.then(registration => {
+        try {
+          registration.showNotification(title, {
+            body: body,
+            icon: '/icon_final.svg', 
+            vibrate: [200, 100, 200], // 震动提醒
+            tag: 'levelup-timer' // 防止重复
+          });
+        } catch (e) {
+          new Notification(title, { body, icon: '/icon_final.svg' });
+        }
+      });
+    } else {
+      new Notification(title, { body, icon: '/icon_final.svg' });
+    }
+  }
+};
 // --- 1. 组件：自定义通知 (Toast) ---
 const Toast = ({ notifications, removeNotification }) => {
   return (
@@ -518,6 +546,7 @@ export default function LevelUpApp() {
   const fileInputRef = useRef(null);
   const imageInputRef = useRef(null);
   const timerRef = useRef(null);
+  const backgroundNotificationTimer = useRef(null); // <--- 加在 timerRef 下面
   const appContainerRef = useRef(null);
 
   // --- 通知系统逻辑 ---
@@ -783,11 +812,31 @@ export default function LevelUpApp() {
       const storedTimerState = JSON.parse(storedTimerStateText);
 
       if (document.visibilityState === 'hidden' && isActive) {
+        // 1. 进入后台：保存状态，清除循环计时器
         saveTimerState(true, timeLeft, initialTime, mode);
         clearInterval(timerRef.current);
         timerRef.current = null;
         
+        // 2. 新增：设置后台“单次闹钟”。如果用户一直不回来，时间到了就发通知
+        // 只有当剩余时间大于0才设置
+        if (timeLeft > 0) {
+           const msRemaining = timeLeft * 1000;
+           // 为了保险，稍微延迟一点点触发，避免和前台冲突
+           backgroundNotificationTimer.current = setTimeout(() => {
+              const title = mode === 'focus' ? "🎉 专注完成！" : "💪 休息结束！";
+              const body = mode === 'focus' ? "你已完成专注，快回来打卡！" : "休息结束，开始学习吧！";
+              sendNotification(title, body);
+           }, msRemaining);
+        }
+
       } else if (document.visibilityState === 'visible' && storedTimerState.isActive) {
+        // 3. 回到前台：清除那个后台“闹钟”（因为人回来了，不用弹窗了）
+        if (backgroundNotificationTimer.current) {
+          clearTimeout(backgroundNotificationTimer.current);
+          backgroundNotificationTimer.current = null;
+        }
+
+        // 恢复时间逻辑（保持不变）
         const now = Date.now();
         const elapsed = (now - storedTimerState.timestamp) / 1000;
         const recoveredTimeLeft = storedTimerState.timeLeft - elapsed;
@@ -821,6 +870,8 @@ export default function LevelUpApp() {
     
     return () => {
       clearInterval(timerRef.current);
+      // 清理后台闹钟
+      if (backgroundNotificationTimer.current) clearTimeout(backgroundNotificationTimer.current);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [isActive, timeLeft, initialTime, mode]);
@@ -945,7 +996,13 @@ export default function LevelUpApp() {
     }
   };
 
-  const handleTimerComplete = () => {
+ const handleTimerComplete = () => {
+    // --- 新增：发送通知 ---
+    const title = mode === 'focus' ? "🎉 专注完成！" : "💪 休息结束！";
+    const body = mode === 'focus' ? "真棒！去领奖励吧！" : "该回到学习状态了！";
+    sendNotification(title, body);
+    // -------------------
+
     setIsActive(false); 
     setIsZen(false);
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
@@ -993,6 +1050,7 @@ export default function LevelUpApp() {
     }
     
     if (!isActive) {
+      requestNotificationPermission()
       saveTimerState(true, timeLeft, initialTime, mode);
       setIsActive(true);
       if (mode === 'focus') {
