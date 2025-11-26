@@ -806,54 +806,83 @@ export default function LevelUpApp() {
 
   useEffect(() => { loadData(); }, []);
 
-  useEffect(() => {
+ useEffect(() => {
     const handleVisibilityChange = () => {
       const storedTimerStateText = localStorage.getItem('levelup_timer_state');
-      if (!storedTimerStateText) return;
-      const storedTimerState = JSON.parse(storedTimerStateText);
-
+      
       if (document.visibilityState === 'hidden' && isActive) {
-        // 1. 进入后台：保存状态，清除循环计时器
+        // 1. 进入后台：保存状态，清除主线程循环计时器
         saveTimerState(true, timeLeft, initialTime, mode);
         clearInterval(timerRef.current);
         timerRef.current = null;
         
-        // 2. 新增：设置后台“单次闹钟”。如果用户一直不回来，时间到了就发通知
-        // 只有当剩余时间大于0才设置
+        // 2. 【修复关键点】使用 Web Worker 替代 setTimeout
+        // Worker 在后台被冻结的几率比主线程小得多，能更准时提醒
         if (timeLeft > 0) {
            const msRemaining = timeLeft * 1000;
-           // 为了保险，稍微延迟一点点触发，避免和前台冲突
-           backgroundNotificationTimer.current = setTimeout(() => {
+           
+           // 清理旧的计时器或Worker
+           if (backgroundNotificationTimer.current) {
+              if (backgroundNotificationTimer.current.terminate) {
+                 backgroundNotificationTimer.current.terminate();
+              } else {
+                 clearTimeout(backgroundNotificationTimer.current);
+              }
+           }
+
+           // 创建一个临时的 Worker Blob
+           const workerBlob = new Blob([
+             `self.onmessage = function(e) { setTimeout(function() { self.postMessage('done'); }, e.data); }`
+           ], { type: "application/javascript" });
+
+           const worker = new Worker(URL.createObjectURL(workerBlob));
+           backgroundNotificationTimer.current = worker; // 将 Worker 存入 ref
+
+           worker.onmessage = () => {
               const title = mode === 'focus' ? "🎉 专注完成！" : "💪 休息结束！";
               const body = mode === 'focus' ? "你已完成专注，快回来打卡！" : "休息结束，开始学习吧！";
               sendNotification(title, body);
-           }, msRemaining);
+              worker.terminate(); // 发送完通知后自我销毁
+           };
+           
+           // 启动后台计时
+           worker.postMessage(msRemaining);
         }
 
-      } else if (document.visibilityState === 'visible' && storedTimerState.isActive) {
-        // 3. 回到前台：清除那个后台“闹钟”（因为人回来了，不用弹窗了）
+      } else if (document.visibilityState === 'visible') {
+        if (!storedTimerStateText) return;
+        const storedTimerState = JSON.parse(storedTimerStateText);
+
+        // 3. 回到前台：清除后台 Worker（因为人回来了，不用后台弹窗了）
         if (backgroundNotificationTimer.current) {
-          clearTimeout(backgroundNotificationTimer.current);
-          backgroundNotificationTimer.current = null;
+           if (backgroundNotificationTimer.current.terminate) {
+              backgroundNotificationTimer.current.terminate();
+           } else {
+              clearTimeout(backgroundNotificationTimer.current);
+           }
+           backgroundNotificationTimer.current = null;
         }
 
         // 恢复时间逻辑（保持不变）
-        const now = Date.now();
-        const elapsed = (now - storedTimerState.timestamp) / 1000;
-        const recoveredTimeLeft = storedTimerState.timeLeft - elapsed;
+        if (storedTimerState && storedTimerState.isActive) {
+          const now = Date.now();
+          const elapsed = (now - storedTimerState.timestamp) / 1000;
+          const recoveredTimeLeft = storedTimerState.timeLeft - elapsed;
 
-        if (recoveredTimeLeft > 1) {
-          setTimeLeft(Math.floor(recoveredTimeLeft));
-          setIsActive(true); 
-          addNotification("屏幕/切屏恢复，计时器继续！", "info");
-        } else {
-          handleTimerComplete();
+          if (recoveredTimeLeft > 1) {
+            setTimeLeft(Math.floor(recoveredTimeLeft));
+            setIsActive(true); 
+            addNotification("屏幕/切屏恢复，计时器继续！", "info");
+          } else {
+            handleTimerComplete();
+          }
         }
       }
     };
     
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
+    // 主线程计时逻辑（保持不变）
     if (isActive && timeLeft > 0) {
       saveTimerState(true, timeLeft, initialTime, mode); 
       timerRef.current = setInterval(() => { 
@@ -871,8 +900,14 @@ export default function LevelUpApp() {
     
     return () => {
       clearInterval(timerRef.current);
-      // 清理后台闹钟
-      if (backgroundNotificationTimer.current) clearTimeout(backgroundNotificationTimer.current);
+      // 组件卸载时的清理逻辑
+      if (backgroundNotificationTimer.current) {
+          if (backgroundNotificationTimer.current.terminate) {
+             backgroundNotificationTimer.current.terminate();
+          } else {
+             clearTimeout(backgroundNotificationTimer.current);
+          }
+      }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [isActive, timeLeft, initialTime, mode]);
