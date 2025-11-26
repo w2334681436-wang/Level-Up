@@ -480,7 +480,6 @@ const MobileNav = ({
 export default function LevelUpApp() {
   const [loading, setLoading] = useState(true);
   // ... 其他 useState 都在这里 ...
-  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // --- 1. 新增：悬浮窗 (PiP) 相关的引用 ---
   const canvasRef = useRef(null);
