@@ -479,6 +479,13 @@ const MobileNav = ({
 // --- 5. 主组件 ---
 export default function LevelUpApp() {
   const [loading, setLoading] = useState(true);
+  // ... 其他 useState 都在这里 ...
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // --- 1. 新增：悬浮窗 (PiP) 相关的引用 ---
+  const canvasRef = useRef(null);
+  const videoRef = useRef(null);
+  const [isPipActive, setIsPipActive] = useState(false);
   
   // 核心状态
   const [mode, setMode] = useState('focus'); 
@@ -796,6 +803,66 @@ export default function LevelUpApp() {
     setUnreadAIMessages(count);
     localStorage.setItem('ai_unread_messages', count.toString());
   };
+
+  // --- 2. 新增：绘制悬浮窗内容 ---
+  const updatePiP = (seconds, currentMode) => {
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+    if (!canvas || !video) return;
+
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+
+    // 1. 绘制背景 (专注是绿色，休息是蓝色)
+    ctx.fillStyle = currentMode === 'focus' ? '#064e3b' : '#1e3a8a'; 
+    ctx.fillRect(0, 0, width, height);
+
+    // 2. 绘制时间文字
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 80px "Courier New", monospace'; // 使用等宽字体
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    // 如果时间到了，显示“完成”
+    const text = seconds <= 0 ? "完成!" : formatTime(seconds);
+    ctx.fillText(text, width / 2, height / 2);
+    
+    // 3. 关键：确保视频源实时更新
+    if (video.srcObject === null) {
+       // 捕捉画布流 (30fps足够了)
+       video.srcObject = canvas.captureStream(30);
+       video.play().catch(()=>{}); // 必须播放才能进入PiP
+    }
+  };
+
+  // --- 3. 新增：切换悬浮窗开关 ---
+  const togglePiP = async () => {
+    try {
+      if (document.pictureInPictureElement) {
+        // 如果已经开了，就关掉
+        await document.exitPictureInPicture();
+        setIsPipActive(false);
+      } else if (videoRef.current) {
+        // 先更新一次画面，防止黑屏
+        updatePiP(timeLeft, mode);
+        // 请求进入画中画
+        await videoRef.current.requestPictureInPicture();
+        setIsPipActive(true);
+      }
+    } catch (err) {
+      console.error(err);
+      addNotification("开启悬浮窗失败，请在浏览器设置中允许，或先点击开始计时。", "error");
+    }
+  };
+
+  // --- 4. 新增：实时更新悬浮窗画面 ---
+  useEffect(() => {
+     // 只有当计时器激活，或者悬浮窗打开时才更新
+     if (isActive || isPipActive) {
+        updatePiP(timeLeft, mode);
+     }
+  }, [timeLeft, mode, isActive, isPipActive]);
 
   useEffect(() => {
     if (chatMessages.length > 0) {
@@ -1586,6 +1653,11 @@ export default function LevelUpApp() {
     <div ref={appContainerRef} className={`h-[100dvh] w-full bg-[#0a0a0a] text-gray-100 font-sans flex flex-col md:flex-row overflow-hidden relative selection:bg-cyan-500/30`}>
       <Toast notifications={notifications} removeNotification={removeNotification} />
       
+      <div className="absolute opacity-0 pointer-events-none w-0 h-0 overflow-hidden">
+        <canvas ref={canvasRef} width={300} height={150} />
+        <video ref={videoRef} muted autoPlay playsInline />
+      </div>
+      
       <ConfirmDialog 
         isOpen={confirmState.isOpen} 
         title={confirmState.title} 
@@ -1787,6 +1859,18 @@ export default function LevelUpApp() {
                   退出禅模式
                 </button>
             }
+
+            <button 
+              onClick={togglePiP}
+              className="bg-gray-800/50 hover:bg-gray-700 text-white p-2 rounded-lg backdrop-blur-sm transition-all shadow-lg mr-2"
+              title="开启悬浮窗 (防后台杀活)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="10" width="20" height="12" rx="2" />
+                <rect x="10" y="3" width="12" height="12" rx="2" fill="rgba(255,255,255,0.5)" />
+              </svg>
+            </button>
+            
             <button 
               onClick={toggleFullScreen}
               className="bg-gray-800/50 hover:bg-gray-700 text-white p-2 rounded-lg backdrop-blur-sm transition-all shadow-lg hidden md:block"
