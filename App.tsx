@@ -1756,23 +1756,27 @@ export default function LevelUpApp() {
 
   if (loading) return <div className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center font-mono animate-pulse">正在载入系统...</div>;
 
-  return (
-    
-    <style>{`
-  @keyframes cyber-flow {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-  }
-  .cyber-gradient {
-    background: linear-gradient(270deg, #ec4899, #8b5cf6, #06b6d4, #ec4899);
-    background-size: 300% 300%;
-    animation: cyber-flow 3s ease infinite;
-  }
-`}</style>
-    
+  // --- 找到 return ( 的位置，大约在代码最下方 ---
+return (
     <div ref={appContainerRef} className={`h-[100dvh] w-full bg-[#0a0a0a] text-gray-100 font-sans flex flex-col md:flex-row overflow-hidden relative selection:bg-cyan-500/30`}>
+      
+      <style>{`
+        @keyframes cyber-flow {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        .cyber-gradient {
+          background: linear-gradient(270deg, #ec4899, #8b5cf6, #06b6d4, #ec4899);
+          background-size: 300% 300%;
+          animation: cyber-flow 3s ease infinite;
+        }
+      `}</style>
+
       <Toast notifications={notifications} removeNotification={removeNotification} />
+   
+      <div className="absolute opacity-0 pointer-events-none w-0 h-0 overflow-hidden">
+        {/* ... */}      <Toast notifications={notifications} removeNotification={removeNotification} />
    
       <div className="absolute opacity-0 pointer-events-none w-0 h-0 overflow-hidden">
         <canvas ref={canvasRef} width={180} height={60} />
