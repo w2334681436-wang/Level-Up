@@ -948,64 +948,74 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
   };
 
 // --- 2. 增强版：绘制悬浮窗内容 (防黑屏 + 美化 + 亮框提醒) ---
-  const updatePiP = (seconds, currentMode) => {
-    const canvas = canvasRef.current;
-    const video = videoRef.current;
-    if (!canvas || !video) return;
+  const updatePiP = (seconds, currentMode) => {
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+    if (!canvas || !video) return;
 
-    const ctx = canvas.getContext('2d');
-    const width = canvas.width;
-    const height = canvas.height;
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
 
-    // 1. 智能背景色：普通状态深色护眼，时间到(<=0)变成鲜艳的亮红色/绿色
-    if (seconds <= 0) {
-        // 时间到！红绿闪烁背景 (模拟亮框效果)
-        const isEvenSecond = Math.floor(Date.now() / 500) % 2 === 0;
-        ctx.fillStyle = isEvenSecond ? '#ef4444' : '#22c55e'; // 红绿交替
-    } else {
-        // 正常倒计时背景 (根据模式：专注深绿 / 休息深蓝)
-        ctx.fillStyle = currentMode === 'focus' ? '#022c22' : '#172554'; 
-    }
-    
-    // 绘制圆角矩形背景
-    ctx.fillRect(0, 0, width, height);
+    // --- 1. 绘制背景 ---
+    // 智能背景色：普通状态深色护眼，时间到(<=0)变成鲜艳的亮红色/绿色
+    if (seconds <= 0) {
+        // 时间到！红绿闪烁背景 (模拟亮框效果)
+        const isEvenSecond = Math.floor(Date.now() / 500) % 2 === 0;
+        ctx.fillStyle = isEvenSecond ? '#ef4444' : '#22c55e'; 
+    } else {
+        // 正常倒计时背景 (根据模式：专注深绿 / 休息深蓝 / 加时金色)
+        if (currentMode === 'overtime') ctx.fillStyle = '#451a03'; // 加时深褐色
+        else if (currentMode === 'focus') ctx.fillStyle = '#022c22'; // 专注深绿
+        else ctx.fillStyle = '#172554'; // 休息深蓝
+    }
+    
+    // 清除画布并填充圆角矩形背景
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillRect(0, 0, width, height);
 
-    // 2. 绘制时间文字 (超大字体填满画面)
-    ctx.fillStyle = '#ffffff';
-    // 根据时间长度动态调整字号，保证不溢出
-    const fontSize = seconds > 3600 ? 40 : 48; 
-    ctx.font = `bold ${fontSize}px "Segoe UI", Roboto, sans-serif`; 
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    
-    // 如果时间到了，显示 "TIME UP"
-    const text = seconds <= 0 ? "DONE!" : formatTime(seconds);
-    
-    // 添加文字阴影，增加立体感
-    ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
-    ctx.shadowBlur = 4;
-    ctx.shadowOffsetX = 2;
-    ctx.shadowOffsetY = 2;
-    
-    ctx.fillText(text, width / 2, height / 2 + 2); // 微调垂直居中
-    
-    // 重置阴影
-    ctx.shadowColor = "transparent";
+    // --- 2. 绘制防黑屏“心跳”像素 (关键修复) ---
+    // 在左上角画一个 1x1 像素，颜色在极深灰之间微小跳动
+    // 这样浏览器会认为画面一直在变，就不会暂停推流
+    const flicker = Math.floor(Date.now() / 500) % 2;
+    ctx.fillStyle = flicker ? '#010101' : '#000000';
+    ctx.fillRect(0, 0, 1, 1);
 
-    // 3. 关键修复黑屏：强制刷新视频流
-    if (video.srcObject) {
-        // 如果流已经存在，不需要重新 capture，但为了防黑屏，画一点微小的噪点或动态条
-        // (这里用一个极小的透明矩形刷新画布状态)
-        ctx.fillStyle = 'rgba(255,255,255,0.01)';
-        ctx.fillRect(0, 0, 1, 1);
-    } else {
-       // 首次捕获
-       const stream = canvas.captureStream(30);
-       video.srcObject = stream;
-       // 强制播放，解决某些浏览器黑屏
-       video.play().then(() => {}).catch((e) => console.log("PiP play fix:", e));
-    }
-  };
+    // --- 3. 绘制文字 ---
+    ctx.fillStyle = '#ffffff';
+    // 根据时间长度动态调整字号，保证不溢出
+    const fontSize = seconds > 3600 ? 50 : 60; 
+    ctx.font = `bold ${fontSize}px "Segoe UI", Roboto, sans-serif`; 
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    // 如果时间到了，显示 "TIME UP"
+    let text = "";
+    if (currentMode === 'overtime') {
+        text = `+${formatTime(seconds)}`;
+    } else {
+        text = seconds <= 0 ? "DONE!" : formatTime(seconds);
+    }
+    
+    // 添加文字阴影
+    ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 2;
+    
+    ctx.fillText(text, width / 2, height / 2 + 5); // 微调垂直居中
+    
+    // 重置阴影
+    ctx.shadowColor = "transparent";
+
+    // --- 4. 视频流初始化 (关键修复) ---
+    if (!video.srcObject) {
+       // 捕获流，设置较高帧率以保持活跃
+       const stream = canvas.captureStream(30);
+       video.srcObject = stream;
+       video.play().catch((e) => console.log("PiP play error (safely ignored):", e));
+    }
+  };
 
   // --- 3. 新增：切换悬浮窗开关 ---
   const togglePiP = async () => {
@@ -1886,11 +1896,11 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
   }
 `}</style>
             <Toast notifications={notifications} removeNotification={removeNotification} />
-   
-      <div className="absolute opacity-0 pointer-events-none w-0 h-0 overflow-hidden">
-        <canvas ref={canvasRef} width={180} height={60} />
-        <video ref={videoRef} muted autoPlay playsInline loop />
-      </div>
+   {/* --- 修复黑屏关键点：必须给容器 1px 的大小，浏览器才会实时渲染 Canvas --- */}
+      <div className="absolute opacity-0 pointer-events-none overflow-hidden" style={{ width: '1px', height: '1px', left: '-9999px', top: '-9999px' }}>
+        <canvas ref={canvasRef} width={300} height={100} /> {/* 稍微加大一点画布分辨率更清晰 */}
+        <video ref={videoRef} muted autoPlay playsInline loop />
+      </div>
       
       <ConfirmDialog 
         isOpen={confirmState.isOpen} 
