@@ -533,30 +533,35 @@ const MobileNav = ({
           <span className="text-[10px] mt-1">补录</span>
         </button>
         
-       {/* --- 移动端 AI 导师按钮 (动态跳动版) --- */}
+       {/* --- 移动端 AI 导师按钮 (能量核心版) --- */}
         <button 
           onClick={startAICoach}
-          className={`flex flex-col items-center p-2 rounded-lg relative transition-all duration-300 ${unreadAIMessages > 0 ? 'text-purple-300' : 'text-gray-400 hover:text-purple-400'}`}
+          className={`flex flex-col items-center p-2 rounded-lg relative transition-all duration-300 ${unreadAIMessages > 0 ? 'text-fuchsia-300' : 'text-gray-400 hover:text-fuchsia-400'}`}
         >
+          {/* 背景光晕 (仅有消息时显示) */}
+          {unreadAIMessages > 0 && (
+            <div className="absolute inset-0 bg-fuchsia-500/10 rounded-lg animate-pulse blur-sm"></div>
+          )}
+
           <div className="relative">
-            {/* 图标：有消息时会上下轻微跳动 (bounce-short 需要自定义或用 bounce) */}
-            <MessageCircle className={`w-5 h-5 ${unreadAIMessages > 0 ? 'animate-bounce' : ''}`} />
+            {/* 图标：有消息时剧烈跳动 */}
+            <MessageCircle className={`w-6 h-6 z-10 relative ${unreadAIMessages > 0 ? 'animate-[bounce_1s_infinite] text-fuchsia-400 drop-shadow-[0_0_8px_rgba(232,121,249,0.8)]' : ''}`} />
             
-            {/* 移动端精致小徽章 */}
+            {/* 移动端红点：改成青色激光点，形成红蓝撞色 */}
             {unreadAIMessages > 0 && (
-              <span className="absolute -top-1.5 -right-2 flex h-3.5 w-3.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-red-500 border border-[#111116] items-center justify-center">
-                   <span className="text-[8px] font-bold text-white">
-                     {unreadAIMessages > 9 ? 'N' : unreadAIMessages}
+              <span className="absolute -top-1 -right-1.5 flex h-4 w-4 z-20">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-4 w-4 bg-cyan-500 border-2 border-[#111116] items-center justify-center">
+                   <span className="text-[9px] font-bold text-black font-mono">
+                     {unreadAIMessages}
                    </span>
                 </span>
               </span>
             )}
           </div>
           
-          <span className={`text-[10px] mt-1 ${unreadAIMessages > 0 ? 'font-bold text-purple-400' : ''}`}>
-             {unreadAIMessages > 0 ? '新消息' : 'AI导师'}
+          <span className={`text-[10px] mt-1 z-10 relative ${unreadAIMessages > 0 ? 'font-black text-fuchsia-400 tracking-wider scale-105' : ''}`}>
+             {unreadAIMessages > 0 ? 'ALERT' : 'AI导师'}
           </span>
         </button>
         
@@ -1752,6 +1757,20 @@ export default function LevelUpApp() {
   if (loading) return <div className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center font-mono animate-pulse">正在载入系统...</div>;
 
   return (
+    
+    <style>{`
+  @keyframes cyber-flow {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  .cyber-gradient {
+    background: linear-gradient(270deg, #ec4899, #8b5cf6, #06b6d4, #ec4899);
+    background-size: 300% 300%;
+    animation: cyber-flow 3s ease infinite;
+  }
+`}</style>
+    
     <div ref={appContainerRef} className={`h-[100dvh] w-full bg-[#0a0a0a] text-gray-100 font-sans flex flex-col md:flex-row overflow-hidden relative selection:bg-cyan-500/30`}>
       <Toast notifications={notifications} removeNotification={removeNotification} />
    
@@ -1793,34 +1812,41 @@ export default function LevelUpApp() {
               <button onClick={() => setShowSettings(!showSettings)} className="text-gray-500 hover:text-white transition p-1 hover:bg-gray-800 rounded-full"><Settings className="w-5 h-5" /></button>
             </div>
 
-          {/* --- PC 端 AI 导师按钮 (高颜值通知版) --- */}
+         {/* --- PC 端 AI 导师按钮 (赛博朋克·终极形态) --- */}
             <button 
               onClick={startAICoach} 
               className={`
-                w-full relative overflow-hidden group font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all transform duration-300
+                w-full relative group font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all duration-300 overflow-hidden
                 ${unreadAIMessages > 0 
-                  ? 'bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-900 border border-purple-400/50 shadow-[0_0_25px_rgba(168,85,247,0.4)] scale-[1.02] animate-[pulse_3s_infinite]' 
-                  : 'bg-gradient-to-r from-purple-900/50 to-blue-900/50 border border-purple-500/30 hover:border-purple-400 hover:scale-[1.02] shadow-[0_0_20px_rgba(139,92,246,0.2)]'
+                  ? 'border border-fuchsia-400/50 shadow-[0_0_30px_rgba(236,72,153,0.5)] scale-[1.02]' 
+                  : 'bg-[#1a1a20] border border-gray-800 hover:border-fuchsia-500/50 hover:shadow-[0_0_20px_rgba(168,85,247,0.2)]'
                 }
               `}
             >
-              {/* 背景流光动画 (仅在 hover 或 有消息时显示) */}
-              <div className={`absolute inset-0 bg-gradient-to-r from-transparent via-purple-400/20 to-transparent translate-x-[-100%] transition-transform duration-1000 ${unreadAIMessages > 0 ? 'animate-[shimmer_2s_infinite]' : 'group-hover:translate-x-[100%]'}`}></div>
+              {/* 1. 动态流光背景 (仅在有消息时激活，或者 hover 时隐约出现) */}
+              <div className={`absolute inset-0 opacity-0 transition-opacity duration-300 ${unreadAIMessages > 0 ? 'opacity-100 cyber-gradient' : 'group-hover:opacity-20 cyber-gradient'}`}></div>
               
-              <MessageCircle className={`w-5 h-5 transition-colors ${unreadAIMessages > 0 ? 'text-purple-300' : 'text-purple-400 group-hover:text-white'}`} /> 
-              
-              <span className={`relative z-10 ${unreadAIMessages > 0 ? 'text-white' : 'text-gray-200'}`}>
-                {unreadAIMessages > 0 ? 'AI 导师发来新消息' : '进入 AI 导师通信终端'}
-              </span>
-
-              {/* 高级通知徽章 (波纹扩散效果) */}
+              {/* 2. 呼吸光晕叠加层 (增加层次感) */}
               {unreadAIMessages > 0 && (
-                <div className="absolute -top-1 -right-1 flex h-4 w-4">
-                  {/* 波纹 Ping 动画 */}
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                  {/* 实体徽章 */}
-                  <span className="relative inline-flex rounded-full h-4 w-4 bg-gradient-to-r from-red-500 to-pink-600 border border-white/20 items-center justify-center">
-                    <span className="text-[9px] font-bold text-white leading-none">
+                 <div className="absolute inset-0 bg-fuchsia-500/20 animate-pulse mix-blend-overlay"></div>
+              )}
+
+              {/* 3. 图标与文字 */}
+              <div className="relative z-10 flex items-center gap-2">
+                <MessageCircle className={`w-5 h-5 transition-colors ${unreadAIMessages > 0 ? 'text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.8)]' : 'text-fuchsia-500 group-hover:text-fuchsia-400'}`} /> 
+                <span className={`tracking-wide ${unreadAIMessages > 0 ? 'text-white font-black drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]' : 'text-gray-300 group-hover:text-white'}`}>
+                  {unreadAIMessages > 0 ? 'INCOMING TRANSMISSION' : 'AI COACH TERMINAL'}
+                </span>
+              </div>
+
+              {/* 4. 赛博风格徽章 (全息投影感) */}
+              {unreadAIMessages > 0 && (
+                <div className="absolute -top-1.5 -right-1.5 flex h-5 w-5 z-20">
+                  {/* 外层雷达波 */}
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                  {/* 核心光点 */}
+                  <span className="relative inline-flex rounded-full h-5 w-5 bg-gradient-to-br from-cyan-400 to-blue-500 border-2 border-white items-center justify-center shadow-[0_0_10px_#06b6d4]">
+                    <span className="text-[10px] font-black text-black leading-none font-mono">
                       {unreadAIMessages > 9 ? '!' : unreadAIMessages}
                     </span>
                   </span>
