@@ -1519,118 +1519,137 @@ export default function LevelUpApp() {
     });
   };
 
-  // --------------------------------------------------------------------------
-  // Send AI Message (Streaming Implementation)
-  // --------------------------------------------------------------------------
-  const sendToAI = async (newMessages, images = []) => {
-    setAiThinking(true);
-    // Add placeholder assistant message
-    const placeholderId = Date.now();
-    setChatMessages(prev => [...prev, { role: 'assistant', content: '', id: placeholderId }]);
+  // Send AI Message (终极修复版：确保关窗必通知)
+  // --------------------------------------------------------------------------
+  const sendToAI = async (newMessages, images = []) => {
+    setAiThinking(true);
+    // Add placeholder assistant message
+    const placeholderId = Date.now();
+    setChatMessages(prev => [...prev, { role: 'assistant', content: '', id: placeholderId }]);
 
-    try {
-      const cleanBaseUrl = apiBaseUrl.replace(/\/$/, '');
-      const endpoint = `${cleanBaseUrl}/chat/completions`;
-      
-      let messages = [...newMessages];
-      
-      // Handle images for multimodal models
-      if (images.length > 0 && (selectedProvider === 'deepseek' || selectedProvider === 'doubao' || selectedProvider === 'google')) {
-        const lastUserMessage = messages[messages.length - 1];
-        if (lastUserMessage.role === 'user') {
-          lastUserMessage.content = [
-            { type: 'text', text: lastUserMessage.content },
-            ...images.map(img => ({
-              type: 'image_url',
-              image_url: { url: img.preview }
-            }))
-          ];
-        }
-      }
-      
-      const requestBody = {
-        model: apiModel,
-        messages: messages,
-        temperature: deepThinkingMode ? 0.3 : 0.7,
-        max_tokens: deepThinkingMode ? 4000 : 2000,
-        stream: true // Enable streaming
-      };
+    // 🔒 状态锁：确保一次对话只增加 1 个未读计数，防止数字乱跳
+    let hasNotifiedThisSession = false;
 
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify(requestBody)
-      });
+    // 🛠️ 辅助函数：尝试通知
+    // 逻辑：如果窗口是关着的 (ref为false)，并且还没通知过，就 +1
+    const tryNotify = () => {
+        if (!showChatModalRef.current && !hasNotifiedThisSession) {
+            setUnreadAIMessages(prev => {
+                const newValue = prev + 1;
+                // 同步保存到本地，防止刷新丢失
+                localStorage.setItem('ai_unread_messages', newValue.toString());
+                return newValue;
+            });
+            hasNotifiedThisSession = true; // 锁定
+        }
+    };
 
-      if (!response.ok) throw new Error(`API Error: ${response.status}`);
-      if (!response.body) throw new Error("No response body");
+    try {
+      const cleanBaseUrl = apiBaseUrl.replace(/\/$/, '');
+      const endpoint = `${cleanBaseUrl}/chat/completions`;
+      
+      let messages = [...newMessages];
+      
+      // 处理多模态图片 (DeepSeek/Doubao/Gemini)
+      if (images.length > 0 && (selectedProvider === 'deepseek' || selectedProvider === 'doubao' || selectedProvider === 'google')) {
+        const lastUserMessage = messages[messages.length - 1];
+        if (lastUserMessage.role === 'user') {
+          lastUserMessage.content = [
+            { type: 'text', text: lastUserMessage.content },
+            ...images.map(img => ({
+              type: 'image_url',
+              image_url: { url: img.preview }
+            }))
+          ];
+        }
+      }
+      
+      const requestBody = {
+        model: apiModel,
+        messages: messages,
+        temperature: deepThinkingMode ? 0.3 : 0.7,
+        max_tokens: deepThinkingMode ? 4000 : 2000,
+        stream: true // 强制开启流式
+      };
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder("utf-8");
-      let done = false;
-      let accumulatedText = "";
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify(requestBody)
+      });
 
-      while (!done) {
-        const { value, done: readerDone } = await reader.read();
-        done = readerDone;
-        const chunkValue = decoder.decode(value, { stream: !done });
-        
-        // Parse SSE (Server-Sent Events)
-        // Format is usually "data: JSON\n\n"
-        const lines = chunkValue.split('\n');
-        
-        for (const line of lines) {
-            const trimmedLine = line.trim();
-            if (!trimmedLine || trimmedLine === 'data: [DONE]') continue;
-            
-            if (trimmedLine.startsWith('data: ')) {
-                try {
-                    const jsonStr = trimmedLine.replace('data: ', '');
-                    const json = JSON.parse(jsonStr);
-                    // Different providers might have slightly different structures, but OpenAI standard is choices[0].delta.content
-                    const content = json.choices?.[0]?.delta?.content || "";
-                    
-                    if (content) {
-                        accumulatedText += content;
-                        
-                        // Update state in real-time
-                        setChatMessages(prev => {
-                            const newHistory = [...prev];
-                            const lastMsgIndex = newHistory.findIndex(m => m.id === placeholderId);
-                            if (lastMsgIndex !== -1) {
-                                newHistory[lastMsgIndex] = { 
-                                    ...newHistory[lastMsgIndex], 
-                                    content: accumulatedText 
-                                };
-                            }
-                            return newHistory;
-                        });
-                    }
-                } catch (e) {
-                    console.error("Error parsing stream chunk", e);
-                }
-            }
-        }
-      }
-      
+      if (!response.ok) throw new Error(`API Error: ${response.status}`);
+      if (!response.body) throw new Error("No response body");
 
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let done = false;
+      let accumulatedText = "";
 
-      if (!showChatModalRef.current) {
-        saveUnreadMessages(unreadAIMessagesRef.current + 1);
-      }
+      // --- 流式读取循环 ---
+      while (!done) {
+        const { value, done: readerDone } = await reader.read();
+        done = readerDone;
+        const chunkValue = decoder.decode(value, { stream: !done });
+        
+        // 解析 SSE 数据
+        const lines = chunkValue.split('\n');
+        
+        for (const line of lines) {
+            const trimmedLine = line.trim();
+            if (!trimmedLine || trimmedLine === 'data: [DONE]') continue;
+            
+            if (trimmedLine.startsWith('data: ')) {
+                try {
+                    const jsonStr = trimmedLine.replace('data: ', '');
+                    const json = JSON.parse(jsonStr);
+                    const content = json.choices?.[0]?.delta?.content || "";
+                    
+                    if (content) {
+                        accumulatedText += content;
+                        
+                        // 1. 实时更新对话框 UI
+                        setChatMessages(prev => {
+                            const newHistory = [...prev];
+                            const lastMsgIndex = newHistory.findIndex(m => m.id === placeholderId);
+                            if (lastMsgIndex !== -1) {
+                                newHistory[lastMsgIndex] = { 
+                                    ...newHistory[lastMsgIndex], 
+                                    content: accumulatedText 
+                                };
+                            }
+                            return newHistory;
+                        });
 
-    } catch (error) {
-
-      if (!showChatModalRef.current) {
-        saveUnreadMessages(unreadAIMessagesRef.current + 1);
-      }
-    } finally {
-      setAiThinking(false);
-    }
-  };
+                        // 2. 实时检查：如果此时用户关掉了窗口，立即通知
+                        tryNotify();
+                    }
+                } catch (e) {
+                    // 忽略解析错误
+                }
+            }
+        }
+      }
+      
+    } catch (error) {
+      console.error("AI Request Failed", error);
+      // 如果报错了，也尝试通知用户去查看错误
+      tryNotify();
+    } finally {
+      // ✅ 关键修复：最终兜底检查
+      // 就算流结束了，或者代码跑完了，再检查一次窗口状态。
+      // 防止用户在 AI 刚说完话的那一瞬间关闭窗口，导致 while 循环正好结束没来得及通知。
+      // 使用 setTimeout 让它在下一个事件循环检查，确保 React 的状态已经更新完毕。
+      setTimeout(() => {
+          tryNotify();
+      }, 100);
+      
+      setAiThinking(false);
+    }
+  };
 
   const startAICoach = () => {
     if (!apiKey) {
