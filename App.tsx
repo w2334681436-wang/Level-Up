@@ -1691,44 +1691,23 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
   
   const cancelStopTimer = () => setShowStopModal(false);
 
-// --- 修改：调用 AI 融合学习进度 (防刷量/艾宾浩斯遗忘曲线版) ---
+// --- 新增：调用 AI 融合学习进度 ---
   const mergeProgressWithAI = async (subjectName, oldContent, newLog) => {
     // 如果没有 API Key，降级为追加模式
-    if (!apiKey) return oldContent ? `${oldContent}\n[${getTodayDateString()}] ${newLog}` : newLog;
-
-    // 1. 获取该科目上次更新的日期，用于判断是否是同日重复刷
-    const subjectKey = Object.keys(SUBJECT_CONFIG).find(k => SUBJECT_CONFIG[k].name === subjectName);
-    const lastUpdateDate = learningProgress[subjectKey]?.lastUpdate || '无记录';
-    const todayDate = getTodayDateString();
+    if (!apiKey) return oldContent ? `${oldContent}\n---\n[${getTodayDateString()}] ${newLog}` : newLog;
 
     try {
       const prompt = `
-        你是一个严格遵循**艾宾浩斯遗忘曲线**的考研学习进度管理员。
-        
-        【任务】：根据【旧进度】和【新增打卡】，更新该科目（${subjectName}）的进度描述。
-        
-        【核心规则：防刷量与记忆保护】：
-        1. **同日重复无效原则**：
-           - 上次更新日期为：${lastUpdateDate}。
-           - 今天日期为：${todayDate}。
-           - **判定**：如果【上次更新日期】等于【今天】，说明用户今天已经学过或复习过。此时，无论用户今天再刷多少遍，**绝对不能**推进记忆阶段（例如：不能从“待复习”变为“已掌握”，也不能从“新学”变为“熟练”）。此操作仅标记为“当日巩固”。
-        2. **必须跨天复习**：记忆深度的推进必须跨越时间。只有当【上次更新日期】早于【今天】，新的复习打卡才能推进阶段。
-        
-        【处理逻辑】：
-        - **场景A（新学）**：如果是新学的单词/章节，状态必须标记为“已学(待明日复习)”。
-        - **场景B（同日二刷/多刷）**：如果旧进度显示今天已经更新过，本次打卡仅在后面备注“(当日加练)”，**严禁**把进度改为“已完成”或“绿色”。保留“待复习”字样。
-        - **场景C（正常复习）**：只有是跨天复习，才允许推进进度（如“熟悉”->“掌握”）。
+        角色：你是一个严谨的学习进度管理员。
+        任务：将【旧进度】和【新增投入】合并，生成一句最新的、简洁的当前进度描述。
+        规则：
+        1. 只要结果。不要解释，不要前缀。
+        2. 如果【新增投入】推进了进度（如从第3章到第4章），则更新为新进度。
+        3. 如果【新增投入】是复习或做题，请在原进度后补充说明（如"已学完第3章，正在进行习题巩固"）。
+        4. 保持极简，不超过 80 字。
 
-        【旧进度】：
-        ${oldContent || "无"}
-
-        【新增打卡】：
-        ${newLog}
-
-        【输出要求】：
-        1. 仅输出更新后的进度文本，不要任何解释。
-        2. 保持多任务并行分支的清晰分隔（使用 " | "）。
-        3. 严格保留其他未涉及子分支的进度。
+        【旧进度】：${oldContent || "无"}
+        【新增投入】：${newLog}
       `;
 
       const cleanBaseUrl = apiBaseUrl.replace(/\/$/, '');
@@ -1738,22 +1717,15 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
         body: JSON.stringify({
           model: apiModel,
           messages: [{ role: "user", content: prompt }],
-          temperature: 0.3, // 降低随机性，确保逻辑严格
-          stream: false 
+          stream: false // 这里不需要流式，直接要结果
         })
       });
       const data = await response.json();
-      
-      // 处理 DeepSeek R1 可能存在的 <think> 标签
-      let mergedText = data.choices?.[0]?.message?.content?.trim();
-      if (mergedText) {
-          mergedText = mergedText.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
-      }
-
-      return mergedText || oldContent; 
+      const mergedText = data.choices?.[0]?.message?.content?.trim();
+      return mergedText || oldContent; // 如果失败返回旧的
     } catch (e) {
       console.error("AI Merge Failed", e);
-      return oldContent ? `${oldContent}\n[${getTodayDateString()}] ${newLog}` : newLog;
+      return oldContent ? `${oldContent}\n---\n[${getTodayDateString()}] ${newLog}` : newLog;
     }
   };
 
