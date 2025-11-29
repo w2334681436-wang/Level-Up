@@ -1114,7 +1114,7 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
     localStorage.setItem('ai_unread_messages', count.toString());
   };
 
-// --- 2. 增强版：绘制悬浮窗内容 (防黑屏 + 美化 + 亮框提醒) ---
+// --- 2. 增强版：绘制悬浮窗内容 (赛博朋克 UI 重构) ---
   const updatePiP = (seconds, currentMode) => {
     const canvas = canvasRef.current;
     const video = videoRef.current;
@@ -1123,64 +1123,99 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
     const ctx = canvas.getContext('2d');
     const width = canvas.width;
     const height = canvas.height;
-
-    // --- 1. 绘制背景 ---
-    // 智能背景色：普通状态深色护眼，时间到(<=0)变成鲜艳的亮红色/绿色
-    if (seconds <= 0) {
-        // 时间到！红绿闪烁背景 (模拟亮框效果)
-        const isEvenSecond = Math.floor(Date.now() / 500) % 2 === 0;
-        ctx.fillStyle = isEvenSecond ? '#ef4444' : '#22c55e'; 
-    } else {
-        // 正常倒计时背景 (根据模式：专注深绿 / 休息深蓝 / 加时金色)
-        if (currentMode === 'overtime') ctx.fillStyle = '#451a03'; // 加时深褐色
-        else if (currentMode === 'focus') ctx.fillStyle = '#022c22'; // 专注深绿
-        else ctx.fillStyle = '#172554'; // 休息深蓝
-    }
     
-    // 清除画布并填充圆角矩形背景
-    ctx.clearRect(0, 0, width, height);
+    // 计算进度百分比 (用于底部进度条)
+    const total = initialTime > 0 ? initialTime : 1;
+    const progress = Math.max(0, Math.min(1, (total - seconds) / total));
+
+    // --- A. 定义主题色 ---
+    let primaryColor, glowColor, statusText;
+    if (seconds <= 0 && currentMode === 'focus') { // 时间到
+        const flash = Math.floor(Date.now() / 500) % 2;
+        primaryColor = flash ? '#ef4444' : '#ffffff'; // 红白闪烁
+        glowColor = '#ef4444';
+        statusText = "SESSION COMPLETE";
+    } else if (currentMode === 'overtime') { // 加时
+        primaryColor = '#fbbf24'; // 金色
+        glowColor = '#d97706';
+        statusText = "GOLDEN OVERTIME";
+    } else if (currentMode === 'break') { // 休息
+        primaryColor = '#60a5fa'; // 蓝色
+        glowColor = '#2563eb';
+        statusText = "SYSTEM RECHARGE";
+    } else { // 专注 (默认)
+        primaryColor = '#34d399'; // 翠绿/青色
+        glowColor = '#059669';
+        statusText = "DEEP WORK PROTOCOL";
+    }
+
+    // --- B. 绘制背景 (深色科技底) ---
+    ctx.fillStyle = '#0a0a0a'; // 纯黑底
     ctx.fillRect(0, 0, width, height);
+    
+    // 绘制微弱的扫描线背景 (增加质感)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+    for (let i = 0; i < height; i += 4) {
+        ctx.fillRect(0, i, width, 1);
+    }
 
-    // --- 2. 绘制防黑屏“心跳”像素 (关键修复) ---
-    // 在左上角画一个 1x1 像素，颜色在极深灰之间微小跳动
-    // 这样浏览器会认为画面一直在变，就不会暂停推流
-    const flicker = Math.floor(Date.now() / 500) % 2;
-    ctx.fillStyle = flicker ? '#010101' : '#000000';
-    ctx.fillRect(0, 0, 1, 1);
+    // --- C. 绘制霓虹边框 ---
+    ctx.lineWidth = 8;
+    ctx.strokeStyle = primaryColor;
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = glowColor;
+    ctx.strokeRect(0, 0, width, height);
+    
+    // 重置阴影，避免影响内部元素太重
+    ctx.shadowBlur = 0;
 
-    // --- 3. 绘制文字 ---
+    // --- D. 绘制防黑屏“心跳”像素 (保持活跃) ---
+    const flicker = Math.floor(Date.now() / 1000) % 2;
+    ctx.fillStyle = flicker ? '#111' : '#000';
+    ctx.fillRect(20, 20, 2, 2);
+
+    // --- E. 绘制主要时间 (巨大的发光数字) ---
     ctx.fillStyle = '#ffffff';
-    // 根据时间长度动态调整字号，保证不溢出
-    const fontSize = seconds > 3600 ? 50 : 60; 
-    ctx.font = `bold ${fontSize}px "Segoe UI", Roboto, sans-serif`; 
+    // 使用等宽字体 Monospace 更有数字感
+    ctx.font = `bold 140px "JetBrains Mono", "Courier New", monospace`; 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     
-    // 如果时间到了，显示 "TIME UP"
-    let text = "";
-    if (currentMode === 'overtime') {
-        text = `+${formatTime(seconds)}`;
-    } else {
-        text = seconds <= 0 ? "DONE!" : formatTime(seconds);
-    }
+    // 文字辉光
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur = 20;
     
-    // 添加文字阴影
-    ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-    ctx.shadowBlur = 4;
-    ctx.shadowOffsetX = 2;
-    ctx.shadowOffsetY = 2;
+    let timeStr = "";
+    if (currentMode === 'overtime') timeStr = `+${formatTime(seconds)}`;
+    else timeStr = seconds <= 0 ? "00:00" : formatTime(seconds);
     
-    ctx.fillText(text, width / 2, height / 2 + 5); // 微调垂直居中
-    
-    // 重置阴影
-    ctx.shadowColor = "transparent";
+    // 稍微向上偏移一点，给下面文字留空间
+    ctx.fillText(timeStr, width / 2, height / 2 - 20);
 
-    // --- 4. 视频流初始化 (关键修复) ---
+    // --- F. 绘制状态文字 (小字) ---
+    ctx.font = `bold 24px "Inter", sans-serif`;
+    ctx.fillStyle = primaryColor;
+    ctx.shadowBlur = 5; // 弱辉光
+    ctx.letterSpacing = "4px"; // 增加字间距，更有科技感
+    ctx.fillText(statusText, width / 2, height / 2 + 80);
+    
+    // --- G. 绘制底部进度条 ---
+    // 只有非加时模式才画进度条
+    if (currentMode !== 'overtime') {
+        ctx.shadowBlur = 0;
+        // 进度条槽
+        ctx.fillStyle = 'rgba(255,255,255,0.1)';
+        ctx.fillRect(0, height - 20, width, 20);
+        // 进度条实体
+        ctx.fillStyle = primaryColor;
+        ctx.fillRect(0, height - 20, width * (1 - progress), 20); // 倒计时进度
+    }
+
+    // --- H. 视频流保活 ---
     if (!video.srcObject) {
-       // 捕获流，设置较高帧率以保持活跃
        const stream = canvas.captureStream(30);
        video.srcObject = stream;
-       video.play().catch((e) => console.log("PiP play error (safely ignored):", e));
+       video.play().catch((e) => console.log("PiP play error:", e));
     }
   };
 
@@ -2122,7 +2157,7 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
         className="fixed pointer-events-none overflow-hidden" 
         style={{ width: '1px', height: '1px', right: '0', bottom: '0', opacity: 0.01, zIndex: -1 }}
       >
-        <canvas ref={canvasRef} width={300} height={100} />
+        <canvas ref={canvasRef} width={640} height={360} />
         <video ref={videoRef} muted autoPlay playsInline loop />
       </div>
       
