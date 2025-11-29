@@ -682,149 +682,7 @@ const GoldParticles = () => {
 
 return <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none z-0" />;};
 
-// --- 重构：加时模式专属-特摄级涡轮光效 (V2) ---
-const OvertimeTurbineEffect = () => {
-  const canvasRef = useRef(null);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    let animationFrameId;
-    let particles = [];
-
-    const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
-    window.addEventListener('resize', resize);
-    resize();
-
-    // --- 精确计算圆环半径 ---
-    // CSS定义: mobile w-64 (256px), desktop w-80 (320px)
-    // SVG定义: viewBox="0 0 100 100", circle r="44"
-    // 结论: 半径是容器宽度的 44%
-    const getRingRadius = () => {
-      const isDesktop = window.innerWidth >= 768;
-      const containerWidth = isDesktop ? 320 : 256; 
-      return containerWidth * 0.44; // 140.8px (PC) / 112.6px (Mobile)
-    };
-
-    class SpiralParticle {
-      constructor() {
-        this.reset(true);
-      }
-
-      reset(initial = false) {
-        const baseRadius = getRingRadius();
-        
-        // 粒子属性：极坐标系统
-        this.angle = Math.random() * Math.PI * 2; // 初始角度
-        this.radius = baseRadius + (Math.random() * 10 - 5); // 出生在圆环带上，略微随机
-        
-        // 运动参数：特摄涡轮感的核心
-        // 1. 径向速度 (向外飞多快)
-        this.radialSpeed = 1.5 + Math.random() * 2.5; 
-        // 2. 角速度 (旋转多快) - 离中心越远转越慢，模拟流体
-        this.angularSpeed = (0.05 + Math.random() * 0.05) * (Math.random() > 0.5 ? 1 : 1); 
-        
-        // 寿命与外观
-        this.life = 1.0;
-        this.decay = 0.01 + Math.random() * 0.02;
-        this.size = 2 + Math.random() * 4;
-        
-        // 颜色：核心亮白 -> 中层金黄 -> 外层深橙
-        this.colorVal = Math.random(); 
-      }
-
-      update() {
-        // 极坐标运动：半径变大，角度旋转
-        this.radius += this.radialSpeed;
-        this.angle += this.angularSpeed;
-        
-        // 模拟阻力，旋转速度慢慢变慢
-        this.angularSpeed *= 0.98;
-        
-        this.life -= this.decay;
-        this.size *= 0.96; // 逐渐变小
-
-        // 如果死掉了，重生
-        if (this.life <= 0 || this.size < 0.2) {
-          this.reset();
-        }
-      }
-
-      draw(centerX, centerY) {
-        // 极坐标转笛卡尔坐标
-        const x = centerX + Math.cos(this.angle) * this.radius;
-        const y = centerY + Math.sin(this.angle) * this.radius;
-
-        ctx.beginPath();
-        ctx.arc(x, y, this.size, 0, Math.PI * 2);
-        
-        const alpha = this.life;
-        
-        // 特摄调色：高亮白芯，金色光晕
-        if (this.colorVal > 0.8) {
-            ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`; // 核心白
-        } else if (this.colorVal > 0.4) {
-            ctx.fillStyle = `rgba(251, 191, 36, ${alpha})`; // 亮金 (Amber-400)
-        } else {
-            ctx.fillStyle = `rgba(234, 88, 12, ${alpha * 0.8})`; // 烈焰橙 (Orange-600)
-        }
-        
-        ctx.fill();
-      }
-    }
-
-    // 增加粒子数量以形成“流体感”
-    const particleCount = 200;
-    for (let i = 0; i < particleCount; i++) {
-      particles.push(new SpiralParticle());
-    }
-
-    const animate = () => {
-      // 1. 拖尾处理：使用较透明的黑色覆盖，形成长拖尾
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.15)'; 
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-
-      // 2. 开启辉光叠加模式 (Bloom)
-      ctx.globalCompositeOperation = 'lighter'; 
-      
-      // 3. 绘制一个底层的光晕，让圆环看起来在发光
-      const ringRadius = getRingRadius();
-      const gradient = ctx.createRadialGradient(centerX, centerY, ringRadius * 0.8, centerX, centerY, ringRadius * 1.2);
-      gradient.addColorStop(0, 'rgba(251, 191, 36, 0)');
-      gradient.addColorStop(0.5, 'rgba(251, 191, 36, 0.1)'); // 淡淡的金圈
-      gradient.addColorStop(1, 'rgba(251, 191, 36, 0)');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // 4. 绘制粒子
-      particles.forEach(p => {
-        p.update();
-        p.draw(centerX, centerY);
-      });
-      
-      // 恢复混合模式
-      ctx.globalCompositeOperation = 'source-over';
-
-      animationFrameId = requestAnimationFrame(animate);
-    };
-
-    animate();
-
-    return () => {
-      window.removeEventListener('resize', resize);
-      cancelAnimationFrame(animationFrameId);
-    };
-  }, []);
-
-  return <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none z-0 scale-100" />;
-};
 
 // --- 5. 主组件 ---
 export default function LevelUpApp() {
@@ -2453,17 +2311,12 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
       <div className={`flex-1 flex flex-col items-center justify-center p-4 relative bg-gradient-to-br ${getBgColor()} transition-colors duration-1000 overflow-hidden pb-20 md:pb-4 min-h-[500px] md:min-h-0 overflow-y-auto md:overflow-y-hidden`}>
 
 {mode === 'overtime' && (
-     <div className="absolute inset-0 z-0 pointer-events-none">
-         {/* 1. 底层：深金色呼吸光晕，解决死黑问题 */}
-         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(245,158,11,0.15)_0%,rgba(0,0,0,0)_70%)] animate-pulse"></div>
-         
-         {/* 2. 核心：涡轮粒子 */}
-         <OvertimeTurbineEffect />
-         
-         {/* 3. 顶层：四周压暗，突出中心 */}
-         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_30%,#000_100%)] opacity-60"></div>
-     </div>
-  )}
+       <div className="absolute inset-0 z-0 pointer-events-none">
+           <GoldParticles />
+           {/* 加一层径向光晕，让粒子更明显，同时避免背景死黑 */}
+           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_20%,#000_100%)] opacity-60"></div>
+       </div>
+    )}
         
         <div className={`md:hidden w-full mb-4 ${activeView !== 'timer' ? 'hidden' : ''}`}>
           <div className="flex gap-2 bg-gray-900/80 backdrop-blur-md p-2 rounded-2xl border border-gray-700/50 shadow-2xl z-10">
