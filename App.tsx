@@ -1691,36 +1691,44 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
   
   const cancelStopTimer = () => setShowStopModal(false);
 
- // --- 修改：调用 AI 融合学习进度 (多线程分支版) ---
+// --- 修改：调用 AI 融合学习进度 (防刷量/艾宾浩斯遗忘曲线版) ---
   const mergeProgressWithAI = async (subjectName, oldContent, newLog) => {
     // 如果没有 API Key，降级为追加模式
     if (!apiKey) return oldContent ? `${oldContent}\n[${getTodayDateString()}] ${newLog}` : newLog;
 
+    // 1. 获取该科目上次更新的日期，用于判断是否是同日重复刷
+    const subjectKey = Object.keys(SUBJECT_CONFIG).find(k => SUBJECT_CONFIG[k].name === subjectName);
+    const lastUpdateDate = learningProgress[subjectKey]?.lastUpdate || '无记录';
+    const todayDate = getTodayDateString();
+
     try {
       const prompt = `
-        你是一个精细化的考研学习进度管理员。
-        任务：根据【旧进度】和【新增打卡】，输出最新的进度状态。
+        你是一个严格遵循**艾宾浩斯遗忘曲线**的考研学习进度管理员。
         
-        核心规则：**多任务并行追踪**。
-        该科目（${subjectName}）可能包含多个并行的子任务（例如：不同的教材、习题集，或408的不同科目）。
+        【任务】：根据【旧进度】和【新增打卡】，更新该科目（${subjectName}）的进度描述。
         
+        【核心规则：防刷量与记忆保护】：
+        1. **同日重复无效原则**：
+           - 上次更新日期为：${lastUpdateDate}。
+           - 今天日期为：${todayDate}。
+           - **判定**：如果【上次更新日期】等于【今天】，说明用户今天已经学过或复习过。此时，无论用户今天再刷多少遍，**绝对不能**推进记忆阶段（例如：不能从“待复习”变为“已掌握”，也不能从“新学”变为“熟练”）。此操作仅标记为“当日巩固”。
+        2. **必须跨天复习**：记忆深度的推进必须跨越时间。只有当【上次更新日期】早于【今天】，新的复习打卡才能推进阶段。
+        
+        【处理逻辑】：
+        - **场景A（新学）**：如果是新学的单词/章节，状态必须标记为“已学(待明日复习)”。
+        - **场景B（同日二刷/多刷）**：如果旧进度显示今天已经更新过，本次打卡仅在后面备注“(当日加练)”，**严禁**把进度改为“已完成”或“绿色”。保留“待复习”字样。
+        - **场景C（正常复习）**：只有是跨天复习，才允许推进进度（如“熟悉”->“掌握”）。
+
         【旧进度】：
         ${oldContent || "无"}
 
         【新增打卡】：
         ${newLog}
 
-        处理逻辑：
-        1. **识别分支**：分析【新增打卡】属于哪个具体子分支（例如：是“计算机网络”还是“操作系统”？是“660题”还是“复习全书”？）。
-        2. **精准更新**：仅更新该特定子分支的进度描述，使其反映最新状态。
-        3. **严格保留**：**绝对不要删除**或**不要概括**其他未涉及的子分支进度，必须原样保留。
-        4. **格式化**：将不同分支的进度用清晰的标点（如 " | " 或换行）分隔，保持条理。
-
-        示例演示：
-        输入旧进度：数据结构[结束]; 计组[第三章]; 操作系统[第一章]
-        输入新打卡：操作系统看完了第二章
-        正确输出：数据结构[结束]; 计组[第三章]; 操作系统[已完结第二章]
-        (注意：数据结构和计组被完美保留)
+        【输出要求】：
+        1. 仅输出更新后的进度文本，不要任何解释。
+        2. 保持多任务并行分支的清晰分隔（使用 " | "）。
+        3. 严格保留其他未涉及子分支的进度。
       `;
 
       const cleanBaseUrl = apiBaseUrl.replace(/\/$/, '');
@@ -1730,16 +1738,15 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
         body: JSON.stringify({
           model: apiModel,
           messages: [{ role: "user", content: prompt }],
-          temperature: 0.3, // 降低随机性，提高逻辑准确度
+          temperature: 0.3, // 降低随机性，确保逻辑严格
           stream: false 
         })
       });
       const data = await response.json();
       
-      // 处理 DeepSeek R1 可能存在的 <think> 标签，只取最后的结果
+      // 处理 DeepSeek R1 可能存在的 <think> 标签
       let mergedText = data.choices?.[0]?.message?.content?.trim();
       if (mergedText) {
-          // 如果模型输出了 thinking 过程，尝试去除（虽然 UI 会隐藏，但为了数据整洁最好去掉）
           mergedText = mergedText.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
       }
 
