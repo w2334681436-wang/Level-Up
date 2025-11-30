@@ -1304,28 +1304,67 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
     }
   };
 
-  // --- 新增：智能后台检测 (尝试自动PiP + 降级提醒) ---
+  // --- 新增：移动端屏幕常亮 (Wake Lock) ---
+  useEffect(() => {
+    let wakeLock = null;
+
+    const requestWakeLock = async () => {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await navigator.wakeLock.request('screen');
+        }
+      } catch (err) {
+        console.log(`${err.name}, ${err.message}`);
+      }
+    };
+
+    // 只有在专注或加时模式且计时中，才保持常亮
+    if (isActive && (mode === 'focus' || mode === 'overtime')) {
+      requestWakeLock();
+    } else {
+      if (wakeLock) wakeLock.release();
+    }
+
+    return () => {
+      if (wakeLock) wakeLock.release();
+    };
+  }, [isActive, mode]);
+
+// --- 修改：智能后台检测 (声音+震动+通知) ---
   useEffect(() => {
     const handleVisibilityChange = async () => {
-      // 当页面变为不可见（切换标签或最小化）且 计时器正在运行 且 悬浮窗没开
-      if (document.visibilityState === 'hidden' && isActive && !document.pictureInPictureElement) {
-        try {
-          // 1. 尝试强行打开 (大部分现代浏览器会拦截这一步)
-          await togglePiP();
-        } catch (e) {
-          // 2. 如果被拦截 (预期行为)，则发送系统通知提醒用户
-          console.log("Auto PiP restricted by browser:", e);
-          sendNotification(
-            "⚠️ 计时仍在继续", 
-            "检测到应用进入后台。受浏览器限制无法自动开启悬浮窗，请手动点击开启以保持关注！"
-          );
+      // 当应用切到后台 且 计时正在进行时
+      if (document.visibilityState === 'hidden' && isActive) {
+        
+        // 1. 【声音警报】切后台瞬间响一声，提醒你"计时还在走"
+        if (audioRef.current) {
+          audioRef.current.volume = 1.0; // 确保最大音量
+          // 播放 1 秒后自动停止，作为简短提示
+          audioRef.current.play().catch(() => {}); 
+          setTimeout(() => audioRef.current.pause(), 1000); 
         }
+
+        // 2. 【物理震动】(仅安卓支持)
+        if ('vibrate' in navigator) {
+          navigator.vibrate([200, 100, 200]); // 震动两下
+        }
+
+        // 3. 【尝试 PiP】(浏览器通常会拦截，但也试一下)
+        if (!document.pictureInPictureElement) {
+          try { await togglePiP(); } catch (e) {}
+        }
+
+        // 4. 【系统通知】
+        sendNotification(
+          "⚠️ 警告：Level Up! 正在后台运行", 
+          "为了防止手机系统杀后台导致计时中断，请尽快回到应用界面！"
+        );
       }
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [isActive]); // 依赖 isActive，只有计时中才触发
+  }, [isActive]);
 
  // --- 4. 优化：实时更新悬浮窗画面 (加入定时刷新防黑屏) ---
   useEffect(() => {
@@ -3079,6 +3118,30 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
           <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-0 md:p-4 animate-in fade-in zoom-in duration-200">
             <div className="bg-[#111116] w-full h-full md:max-w-xl md:h-[85vh] md:rounded-3xl shadow-2xl flex flex-col relative overflow-hidden border-0 md:border border-gray-800 p-4 md:p-8">
                <h2 className="text-xl md:text-2xl font-bold text-white mb-4 md:mb-6 flex items-center gap-2 mt-4 md:mt-0"><Settings className="w-6 h-6 text-cyan-400"/> 系统设置与配置</h2>
+              {/* --- 移动端通知权限手动触发器 --- */}
+                {Notification.permission !== 'granted' && (
+                  <div className="mb-4 bg-amber-500/20 border border-amber-500/50 p-3 rounded-xl flex items-center justify-between animate-pulse">
+                    <div className="flex items-center gap-2 text-amber-400 text-xs font-bold">
+                      <AlertTriangle className="w-4 h-4" />
+                      <span>移动端需手动开启通知权限</span>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        Notification.requestPermission().then(perm => {
+                          if(perm === 'granted') {
+                            addNotification("通知权限已开启！快切后台试试", "success");
+                            sendNotification("测试成功", "你的手机可以收到通知了！");
+                          } else {
+                            addNotification("权限被拒绝，请在手机系统设置中允许浏览器通知", "error");
+                          }
+                        });
+                      }}
+                      className="bg-amber-500 text-black text-xs font-bold px-3 py-1.5 rounded-lg shadow-lg active:scale-95 transition"
+                    >
+                      开启权限
+                    </button>
+                  </div>
+                )}
                <div className="flex-1 overflow-y-auto space-y-6 pb-20 md:pb-0">
                   
                   {/* Chat Bubbles Color */}
