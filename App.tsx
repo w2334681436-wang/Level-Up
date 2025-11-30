@@ -1304,6 +1304,29 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
     }
   };
 
+  // --- 新增：智能后台检测 (尝试自动PiP + 降级提醒) ---
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      // 当页面变为不可见（切换标签或最小化）且 计时器正在运行 且 悬浮窗没开
+      if (document.visibilityState === 'hidden' && isActive && !document.pictureInPictureElement) {
+        try {
+          // 1. 尝试强行打开 (大部分现代浏览器会拦截这一步)
+          await togglePiP();
+        } catch (e) {
+          // 2. 如果被拦截 (预期行为)，则发送系统通知提醒用户
+          console.log("Auto PiP restricted by browser:", e);
+          sendNotification(
+            "⚠️ 计时仍在继续", 
+            "检测到应用进入后台。受浏览器限制无法自动开启悬浮窗，请手动点击开启以保持关注！"
+          );
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [isActive]); // 依赖 isActive，只有计时中才触发
+
  // --- 4. 优化：实时更新悬浮窗画面 (加入定时刷新防黑屏) ---
   useEffect(() => {
      let intervalId;
@@ -1540,11 +1563,15 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
     }
   };
 
-// --- 修改：计时结束逻辑 (休息结束也触发弹窗) ---
+// --- 修改：计时结束逻辑 (加入健康提醒) ---
   const handleTimerComplete = () => {
-    // 发送系统通知
+    // 1. 准备文案
     const title = mode === 'focus' ? "🎉 专注完成！" : "💪 休息结束！";
-    const body = mode === 'focus' ? "真棒！去领奖励吧！" : "该回到学习状态了！";
+    // 修改点：专注结束时加入健康提醒
+    const body = mode === 'focus' 
+      ? "太棒了！记得站起来活动一下，喝口水补充水分！💧" 
+      : "该回到学习状态了！加油！";
+    
     sendNotification(title, body);
 
     setIsActive(false); 
@@ -1554,20 +1581,16 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
     
     localStorage.removeItem('levelup_timer_state');
     
-    // 核心修改：无论什么模式结束，都播放铃声并弹窗，而不是自动跳转
     if (mode === 'focus') {
       setPendingStudyTime(initialTime); 
       setIsManualLog(false); 
-      setShowLogModal(true); // 专注结束先去填日志，填完会自动触发询问是否休息
-      // 注意：专注结束不直接弹 TimeUpModal，而是先 LogModal，这是你原本的逻辑
-      // 如果你想专注结束也弹那个 "Excellent" 弹窗，可以在 saveLog 后触发
-      // 但为了保持你原本的“专注->填日志->休息”流，这里保持不变
+      setShowLogModal(true); 
+      // 这里也可以额外弹个 Toast 强调一下
+      addNotification("🌟 专注结束！快去接杯水，活动活动脖子吧！", "success");
     } else {
-      // >>> 休息或游戏结束 <<<
       if (mode === 'gaming') updateGameStats(initialTime);
-      
-      playAlarm(); // 1. 播放铃声 (同款)
-      setShowTimeUpModal(true); // 2. 弹出全屏提醒 (同款)
+      playAlarm(); 
+      setShowTimeUpModal(true); 
     }
   };
 
