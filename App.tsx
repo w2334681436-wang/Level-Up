@@ -21,28 +21,35 @@ const requestNotificationPermission = () => {
   }
 };
 
-// --- 新增：发送通知工具 ---
+// --- 修改：发送通知工具 (点击自动关闭 + 唤起窗口) ---
 const sendNotification = (title, body) => {
-  if ('Notification' in window && Notification.permission === 'granted') {
-    // 尝试在 Service Worker 中显示通知（移动端更稳定）
-    if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
-      navigator.serviceWorker.ready.then(registration => {
-        try {
-          registration.showNotification(title, {
-            body: body,
-            icon: '/icon_final.svg', 
-            vibrate: [200, 100, 200], // 震动提醒
-            tag: 'levelup-timer' // 防止重复
-          });
-        } catch (e) {
-          new Notification(title, { body, icon: '/icon_final.svg' });
-        }
-      });
-    } else {
-      new Notification(title, { body, icon: '/icon_final.svg' });
-    }
-  }
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+  // 使用标准的 Notification API，以便绑定点击事件
+  try {
+    const notification = new Notification(title, {
+      body: body,
+      icon: '/icon_final.svg', // 确保你的图标路径正确，或者用默认的
+      tag: 'levelup-timer',    // 关键：使用相同的tag，防止通知栏堆积
+      renotify: true,          // 允许新通知覆盖旧通知时再次震动/响铃
+      requireInteraction: false // 不需要一直驻留，点一下就走
+    });
+
+    // --- 核心修复：点击通知后的行为 ---
+    notification.onclick = function(event) {
+      event.preventDefault(); // 阻止浏览器默认可能打开新标签的行为
+      
+      // 1. 尝试聚焦当前窗口 (PC/安卓有效)
+      window.focus(); 
+      
+      // 2. 立即关闭这条通知 (解决手动清理问题)
+      this.close(); 
+    };
+  } catch (e) {
+    console.error("Notification Error:", e);
+  }
 };
+
 // --- 1. 组件：自定义通知 (Toast) ---
 const Toast = ({ notifications, removeNotification }) => {
   return (
@@ -1329,6 +1336,37 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
       if (wakeLock) wakeLock.release();
     };
   }, [isActive, mode]);
+
+  // --- 新增：回到前台自动开启悬浮窗 ---
+  useEffect(() => {
+    const handleFocus = async () => {
+      // 逻辑：如果计时器在跑 && 悬浮窗没开 -> 用户刚回来，赶紧补开悬浮窗
+      if (isActive && !document.pictureInPictureElement) {
+        // 稍微延迟 300ms，等待页面完全激活，提高成功率
+        setTimeout(async () => {
+          try {
+            await togglePiP();
+            addNotification("欢迎回来！悬浮窗已自动重连", "success");
+          } catch (e) {
+            // 如果自动打开失败（浏览器限制），就不报错干扰用户了
+            console.log("自动悬浮被拦截，需手动点击");
+          }
+        }, 300);
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    // 同时也监听 visibilitychange 的 visible 状态，双重保险
+    const handleVisible = () => {
+      if (document.visibilityState === 'visible') handleFocus();
+    };
+    document.addEventListener("visibilitychange", handleVisible);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener("visibilitychange", handleVisible);
+    };
+  }, [isActive]);
 
 // --- 修改：智能后台检测 (仅在未开悬浮窗时报警) ---
   useEffect(() => {
