@@ -21,27 +21,26 @@ const requestNotificationPermission = () => {
   }
 };
 
-// --- 修改：发送通知工具 (极简版：点击即自动清理，不乱跳) ---
+// --- 还原：基础通知工具 (无点击交互，最稳定) ---
 const sendNotification = (title, body) => {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
-
+  
   try {
-    // 使用 Main Thread 通知，以便控制点击行为
-    const notification = new Notification(title, {
-      body: body,
-      icon: '/icon_final.svg',
-      tag: 'levelup-timer', // 覆盖旧通知，防止堆积
-      renotify: true        // 允许再次震动
-    });
-
-    // 核心修改：点击后只做一件事 -> 立即关闭通知
-    // 不尝试 window.focus()，防止安卓闪退或跳Chrome
-    notification.onclick = function(e) {
-      e.preventDefault();
-      this.close(); 
-    };
+    // 尝试使用 ServiceWorker 发送 (PWA标准)，如果失败则回退到普通通知
+    if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
+      navigator.serviceWorker.ready.then(reg => {
+        reg.showNotification(title, {
+          body: body,
+          icon: '/icon_final.svg',
+          tag: 'levelup-timer',
+          renotify: true
+        }).catch(() => new Notification(title, { body, icon: '/icon_final.svg' }));
+      });
+    } else {
+      new Notification(title, { body, icon: '/icon_final.svg' });
+    }
   } catch (e) {
-    console.error("Notification Error:", e);
+    console.error(e);
   }
 };
 
@@ -704,8 +703,6 @@ export default function LevelUpApp() {
   const [activeView, setActiveView] = useState('timer'); 
   const [showTimeUpModal, setShowTimeUpModal] = useState(false); // 询问弹窗状态
   const [overtimeSeconds, setOvertimeSeconds] = useState(0);     // 加时秒数
-  // ... 其他 state ...
-  const [showResumeOverlay, setShowResumeOverlay] = useState(false); // 新增：恢复悬浮窗的遮罩
   const audioRef = useRef(null);                                 // 音频引用
   
   // 数据状态
@@ -1277,16 +1274,17 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
     }
   };
 
-// --- 修改：切换悬浮窗 (支持静默模式，防止报错刷屏) ---
-  const togglePiP = async (isAuto = false) => {
+// --- 还原：最简单的悬浮窗开关 (只在用户点击时触发) ---
+  const togglePiP = async () => {
     try {
       if (document.pictureInPictureElement) {
         await document.exitPictureInPicture();
         setIsPipActive(false);
       } else if (videoRef.current && canvasRef.current) {
-        // 强制刷新一帧
+        // 强制刷新一帧画面确保有内容
         updatePiP(timeLeft, mode);
         
+        // 确保视频流在播放
         if (videoRef.current.paused) {
            await videoRef.current.play().catch(() => {});
         }
@@ -1295,12 +1293,9 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
         setIsPipActive(true);
       }
     } catch (err) {
-      console.log("PiP toggle failed:", err);
-      // 关键修改：如果是自动尝试(isAuto=true)，失败了保持安静，不弹报错
-      // 只有用户手动点击(isAuto=false)时，才弹错误提示
-      if (!isAuto) {
-        addNotification("开启失败，请尝试先点击开始计时", "error");
-      }
+      console.error("PiP Error:", err);
+      // 只有手动点击失败时才提示一下，平时绝不打扰
+      addNotification("开启悬浮窗失败，请确保先点击开始计时", "error");
     }
   };
 
@@ -1330,75 +1325,8 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
     };
   }, [isActive, mode]);
 
-// --- 修改：回到前台检测 (调用静默开启，失败则显示底部条) ---
-  useEffect(() => {
-    const handleFocus = async () => {
-      // 逻辑：如果计时器在跑 && 悬浮窗没开 -> 说明用户切回来了
-      if (isActive && !document.pictureInPictureElement) {
-        try {
-          // 传入 true，表示这是自动尝试，失败了别弹窗！
-          await togglePiP(true);
-          // 只有成功了才提示
-          addNotification("已自动恢复悬浮窗", "success");
-        } catch (e) {
-          // 失败了（静默），显示底部的“恢复悬浮窗”小条，让用户手动点
-          setShowResumeOverlay(true); 
-        }
-      }
-    };
 
-    window.addEventListener('focus', handleFocus);
-    const handleVisible = () => {
-      if (document.visibilityState === 'visible') handleFocus();
-    };
-    document.addEventListener("visibilitychange", handleVisible);
 
-    return () => {
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener("visibilitychange", handleVisible);
-    };
-  }, [isActive]);
-
-// --- 修改：智能后台检测 (仅在未开悬浮窗时报警) ---
-  useEffect(() => {
-    const handleVisibilityChange = async () => {
-      // 当应用切到后台 且 计时正在进行时
-      if (document.visibilityState === 'hidden' && isActive) {
-        
-        // 关键判断：如果悬浮窗已经在运行，则视为安全，不打扰用户
-        if (document.pictureInPictureElement) {
-          console.log("悬浮窗运行中，保持静默...");
-          return; 
-        }
-
-        // --- 以下是未开悬浮窗的“高风险”状态，执行报警 ---
-
-        // 1. 【声音警报】
-        if (audioRef.current) {
-          audioRef.current.volume = 1.0; 
-          audioRef.current.play().catch(() => {}); 
-          setTimeout(() => audioRef.current.pause(), 1000); 
-        }
-
-        // 2. 【物理震动】
-        if ('vibrate' in navigator) {
-          navigator.vibrate([200, 100, 200]); 
-        }
-
-        // 3. 【尝试挽救】(尽人事听天命，尝试自动开一下)
-        try { await togglePiP(); } catch (e) {}
-
-        // 4. 【系统通知】
-        sendNotification(
-          "⚠️ 警告：Level Up! 正在后台运行", 
-          "检测到悬浮窗未开启！系统可能会杀后台导致计时中断，请尽快回到应用！"
-        );
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [isActive]);
 
  // --- 4. 优化：实时更新悬浮窗画面 (加入定时刷新防黑屏) ---
   useEffect(() => {
@@ -2338,44 +2266,7 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
       
       <Toast notifications={notifications} removeNotification={removeNotification} />
 
-      {/* ------------------------------------------------------ */}
-      {/* --- 新增：迷你悬浮窗恢复条 (不挡屏幕，点击即开) --- */}
-      {/* ------------------------------------------------------ */}
-      {showResumeOverlay && (
-        <div className="fixed bottom-24 left-4 right-4 md:bottom-8 md:right-8 md:left-auto md:w-80 z-[200] animate-in slide-in-from-bottom-4 fade-in duration-300">
-          <div className="bg-gray-900/90 backdrop-blur-xl border border-cyan-500/50 p-4 rounded-2xl shadow-[0_0_30px_rgba(6,182,212,0.3)] flex items-center justify-between gap-4">
-            
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-cyan-500/20 flex items-center justify-center flex-shrink-0 animate-pulse">
-                <Maximize2 className="w-5 h-5 text-cyan-400" />
-              </div>
-              <div>
-                <h4 className="text-white text-sm font-bold">恢复悬浮窗?</h4>
-                <p className="text-cyan-200/70 text-xs">保持计时不中断</p>
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <button 
-                onClick={() => setShowResumeOverlay(false)}
-                className="p-2 text-gray-400 hover:text-white transition"
-              >
-                <X className="w-5 h-5" />
-              </button>
-             <button 
-                onClick={() => {
-                  togglePiP(false); // 手动点击，传入 false (或者不传)，允许报错
-                  setShowResumeOverlay(false);
-                }}
-                className="bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-bold px-4 py-2 rounded-lg shadow-lg active:scale-95 transition"
-              >
-                开启
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
+     
    
       {/* 2. 【关键修改】这里是新的 PiP 画布容器 */}
       {/* 删掉原来那个 "absolute opacity-0..." 的 div，用下面这个替换 */}
