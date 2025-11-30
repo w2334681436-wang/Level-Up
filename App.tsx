@@ -21,32 +21,29 @@ const requestNotificationPermission = () => {
   }
 };
 
-// --- 修改：发送通知工具 (点击自动关闭 + 唤起窗口) ---
+// --- 修改：发送通知工具 (PWA 兼容模式) ---
 const sendNotification = (title, body) => {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
-  // 使用标准的 Notification API，以便绑定点击事件
-  try {
-    const notification = new Notification(title, {
-      body: body,
-      icon: '/icon_final.svg', // 确保你的图标路径正确，或者用默认的
-      tag: 'levelup-timer',    // 关键：使用相同的tag，防止通知栏堆积
-      renotify: true,          // 允许新通知覆盖旧通知时再次震动/响铃
-      requireInteraction: false // 不需要一直驻留，点一下就走
+  // 1. 优先尝试 Service Worker (PWA 标准做法，防闪退)
+  if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
+    navigator.serviceWorker.ready.then(registration => {
+      try {
+        registration.showNotification(title, {
+          body: body,
+          icon: '/icon_final.svg',
+          vibrate: [200, 100, 200],
+          tag: 'levelup-timer', // 防止刷屏
+          renotify: true        // 允许再次震动
+        });
+      } catch (e) {
+        // SW 失败则降级
+        new Notification(title, { body, icon: '/icon_final.svg' });
+      }
     });
-
-    // --- 核心修复：点击通知后的行为 ---
-    notification.onclick = function(event) {
-      event.preventDefault(); // 阻止浏览器默认可能打开新标签的行为
-      
-      // 1. 尝试聚焦当前窗口 (PC/安卓有效)
-      window.focus(); 
-      
-      // 2. 立即关闭这条通知 (解决手动清理问题)
-      this.close(); 
-    };
-  } catch (e) {
-    console.error("Notification Error:", e);
+  } else {
+    // 2. 降级处理
+    new Notification(title, { body, icon: '/icon_final.svg' });
   }
 };
 
@@ -116,11 +113,6 @@ const getYesterdayDateString = () => {
   const date = new Date();
   date.setDate(date.getDate() - 1);
   return date.toISOString().split('T')[0];
-};
-
-const cleanAIResponse = (text) => {
-  if (!text) return '';
-  return text.trim();
 };
 
 const getContrastColor = (hexColor) => {
@@ -708,14 +700,14 @@ export default function LevelUpApp() {
   const [timeLeft, setTimeLeft] = useState(45 *60);
   const [isActive, setIsActive] = useState(false);
   const [initialTime, setInitialTime] = useState(45 * 60);
-  const [lastActiveTime, setLastActiveTime] = useState(null); 
   const [stage, setStage] = useState(getStageInfo());
   const [isZen, setIsZen] = useState(false);
   const [customTargetHours, setCustomTargetHours] = useState(null); 
   const [activeView, setActiveView] = useState('timer'); 
   const [showTimeUpModal, setShowTimeUpModal] = useState(false); // 询问弹窗状态
   const [overtimeSeconds, setOvertimeSeconds] = useState(0);     // 加时秒数
-  
+  // ... 其他 state ...
+  const [showResumeOverlay, setShowResumeOverlay] = useState(false); // 新增：恢复悬浮窗的遮罩
   const audioRef = useRef(null);                                 // 音频引用
   
   // 数据状态
@@ -1337,26 +1329,23 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
     };
   }, [isActive, mode]);
 
-  // --- 新增：回到前台自动开启悬浮窗 ---
+// --- 修改：回到前台检测 (自动尝试 + 失败显示提示条) ---
   useEffect(() => {
     const handleFocus = async () => {
-      // 逻辑：如果计时器在跑 && 悬浮窗没开 -> 用户刚回来，赶紧补开悬浮窗
+      // 逻辑：如果计时器在跑 && 悬浮窗没开 -> 说明用户切回来了
       if (isActive && !document.pictureInPictureElement) {
-        // 稍微延迟 300ms，等待页面完全激活，提高成功率
-        setTimeout(async () => {
-          try {
-            await togglePiP();
-            addNotification("欢迎回来！悬浮窗已自动重连", "success");
-          } catch (e) {
-            // 如果自动打开失败（浏览器限制），就不报错干扰用户了
-            console.log("自动悬浮被拦截，需手动点击");
-          }
-        }, 300);
+        try {
+          // 1. 先偷偷试一下能不能自动打开 (某些旧手机可能允许)
+          await togglePiP();
+          addNotification("已自动恢复悬浮窗", "success");
+        } catch (e) {
+          // 2. 如果失败 (预期内)，则显示底部提示条，让用户点一下
+          setShowResumeOverlay(true); 
+        }
       }
     };
 
     window.addEventListener('focus', handleFocus);
-    // 同时也监听 visibilitychange 的 visible 状态，双重保险
     const handleVisible = () => {
       if (document.visibilityState === 'visible') handleFocus();
     };
@@ -2069,18 +2058,6 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
     });
   };
 
-  const fileToBase64 = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => {
-        const result = reader.result;
-        const base64 = (result as string).split(',')[1];
-        resolve(base64);
-      };
-      reader.onerror = error => reject(error);
-    });
-  };
 
   // Send AI Message (终极修复版：确保关窗必通知)
   // --------------------------------------------------------------------------
@@ -2358,6 +2335,45 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
       `}</style>
       
       <Toast notifications={notifications} removeNotification={removeNotification} />
+
+      {/* ------------------------------------------------------ */}
+      {/* --- 新增：迷你悬浮窗恢复条 (不挡屏幕，点击即开) --- */}
+      {/* ------------------------------------------------------ */}
+      {showResumeOverlay && (
+        <div className="fixed bottom-24 left-4 right-4 md:bottom-8 md:right-8 md:left-auto md:w-80 z-[200] animate-in slide-in-from-bottom-4 fade-in duration-300">
+          <div className="bg-gray-900/90 backdrop-blur-xl border border-cyan-500/50 p-4 rounded-2xl shadow-[0_0_30px_rgba(6,182,212,0.3)] flex items-center justify-between gap-4">
+            
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-cyan-500/20 flex items-center justify-center flex-shrink-0 animate-pulse">
+                <Maximize2 className="w-5 h-5 text-cyan-400" />
+              </div>
+              <div>
+                <h4 className="text-white text-sm font-bold">恢复悬浮窗?</h4>
+                <p className="text-cyan-200/70 text-xs">保持计时不中断</p>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setShowResumeOverlay(false)}
+                className="p-2 text-gray-400 hover:text-white transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <button 
+                onClick={() => {
+                  togglePiP(); // 用户手动点击，必定成功
+                  setShowResumeOverlay(false);
+                }}
+                className="bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-bold px-4 py-2 rounded-lg shadow-lg active:scale-95 transition"
+              >
+                开启
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
    
       {/* 2. 【关键修改】这里是新的 PiP 画布容器 */}
       {/* 删掉原来那个 "absolute opacity-0..." 的 div，用下面这个替换 */}
