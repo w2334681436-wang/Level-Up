@@ -2185,7 +2185,7 @@ ${todayLogDetails}`;
       const initialMsg = { role: 'system', content: systemContext };
       
       // 默认触发语改得更通用一点，引导用户去问
-      const triggerMsg = { role: 'user', content: "导师，请查看我的学习记录。你可以帮我复盘今天、昨天或之前的任意一天的学习情况吗？" };
+      const triggerMsg = { role: 'user', content: "导师，请查看我的学习记录和进度。你可以帮我分析一下现在的学习进度和状态吗" };
       
       const newHistory = [initialMsg, triggerMsg];
       setChatMessages(newHistory); 
