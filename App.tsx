@@ -1359,7 +1359,7 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
     localStorage.setItem('ai_unread_messages', count.toString());
   };
 
-// --- 2. 增强版：绘制悬浮窗内容 (纯黑底 + 修复娱乐模式) ---
+// --- 2. 增强版：绘制悬浮窗内容 (世界级 UI 优化版) ---
   const updatePiP = (seconds, currentMode) => {
     const canvas = canvasRef.current;
     const video = videoRef.current;
@@ -1372,98 +1372,140 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
     const total = initialTime > 0 ? initialTime : 1;
     const progress = Math.max(0, Math.min(1, (total - seconds) / total));
 
-    let primaryColor, glowColor, statusText, headerText;
+    // --- 1. 配色系统 (更加高级的电竞色板) ---
+    let theme = {
+        primary: '#34d399', // 默认青色
+        glow: '#059669',
+        bgGradientStart: '#0f172a', // 深蓝灰
+        bgGradientEnd: '#020617',   // 近黑
+        textShadow: 15
+    };
+
+    let statusText = "DEEP WORK PROTOCOL";
     
-    // 动态点点点
+    // 动态点点点 (每秒变化)
     const dotCount = Math.abs(seconds) % 4;
     const dots = ".".repeat(dotCount).padEnd(3, ' '); 
+    let headerText = `⚡ 对局进行中${dots}`;
 
+    // 根据模式切换皮肤
     if (seconds <= 0 && currentMode === 'focus') { 
-        primaryColor = '#ef4444'; // 红色
-        glowColor = '#991b1b';
+        theme = { primary: '#ef4444', glow: '#991b1b', bgGradientStart: '#450a0a', bgGradientEnd: '#000000', textShadow: 20 };
         statusText = "VICTORY PENDING"; 
         headerText = "⚠ 专注目标达成";
     } else if (currentMode === 'overtime') { 
-        primaryColor = '#fbbf24'; // 金色
-        glowColor = '#d97706';
+        theme = { primary: '#fbbf24', glow: '#d97706', bgGradientStart: '#451a03', bgGradientEnd: '#000000', textShadow: 20 };
         statusText = `PEAK SCORE: ${rankState.peakScore}`; 
         headerText = `🏆 巅峰加时${dots}`;
     } else if (currentMode === 'break') { 
-        primaryColor = '#60a5fa'; // 蓝色
-        glowColor = '#2563eb';
+        theme = { primary: '#60a5fa', glow: '#2563eb', bgGradientStart: '#172554', bgGradientEnd: '#000000', textShadow: 15 };
         statusText = `RECOVERING${dots}`;
         headerText = `💤 泉水回血${dots}`;
     } else if (currentMode === 'gaming') { 
-        // >>> 修复：新增娱乐模式独立判断 <<<
-        primaryColor = '#c084fc'; // 紫色
-        glowColor = '#7e22ce';
+        theme = { primary: '#c084fc', glow: '#7e22ce', bgGradientStart: '#3b0764', bgGradientEnd: '#000000', textShadow: 15 };
         statusText = "ENTERTAINMENT";
         headerText = `🎮 娱乐放松中${dots}`;
-    } else { 
-        // 剩下的才是专注模式
-        primaryColor = '#34d399'; // 青色
-        glowColor = '#059669';
-        statusText = "DEEP WORK PROTOCOL";
-        headerText = `⚡ 对局进行中${dots}`;
     }
 
-    // --- B. 绘制背景 (改回纯黑) ---
-    ctx.fillStyle = '#000000'; // ✅ 纯黑背景
+    // --- 2. 绘制背景 (科技深空感) ---
+    const gradient = ctx.createRadialGradient(width / 2, height / 2, 50, width / 2, height / 2, width);
+    gradient.addColorStop(0, theme.bgGradientStart);
+    gradient.addColorStop(1, theme.bgGradientEnd);
+    ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, width, height);
 
-    // 保留淡淡的扫描线增加质感 (可选，如果想要绝对纯黑可以把下面4行注释掉)
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
-    for (let i = 0; i < height; i += 4) {
-        ctx.fillRect(0, i, width, 1);
-    }
+    // 绘制背景网格 (UI 细节的关键)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    // 竖线
+    for (let x = 0; x <= width; x += 40) { ctx.moveTo(x, 0); ctx.lineTo(x, height); }
+    // 横线
+    for (let y = 0; y <= height; y += 40) { ctx.moveTo(0, y); ctx.lineTo(width, y); }
+    ctx.stroke();
 
-    // --- C. 绘制霓虹边框 ---
-    ctx.lineWidth = 6;
-    ctx.strokeStyle = primaryColor;
-    ctx.shadowBlur = 15; 
-    ctx.shadowColor = glowColor;
-    ctx.strokeRect(0, 0, width, height);
+    // --- 3. 绘制 HUD 战术边角 (增加结构感) ---
+    ctx.strokeStyle = theme.primary;
+    ctx.lineWidth = 4;
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = theme.glow;
+    const cornerSize = 20;
     
-    // --- D. 绘制顶部 HUD ---
-    ctx.shadowBlur = 5; 
+    ctx.beginPath();
+    // 左上
+    ctx.moveTo(10, 10 + cornerSize); ctx.lineTo(10, 10); ctx.lineTo(10 + cornerSize, 10);
+    // 右上
+    ctx.moveTo(width - 10 - cornerSize, 10); ctx.lineTo(width - 10, 10); ctx.lineTo(width - 10, 10 + cornerSize);
+    // 左下
+    ctx.moveTo(10, height - 10 - cornerSize); ctx.lineTo(10, height - 10); ctx.lineTo(10 + cornerSize, height - 10);
+    // 右下
+    ctx.moveTo(width - 10 - cornerSize, height - 10); ctx.lineTo(width - 10, height - 10); ctx.lineTo(width - 10, height - 10 - cornerSize);
+    ctx.stroke();
+
+    // 外边框 (极细)
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = theme.primary;
+    ctx.globalAlpha = 0.3;
+    ctx.strokeRect(10, 10, width - 20, height - 20);
+    ctx.globalAlpha = 1.0;
+
+    // --- 4. 绘制文字信息 ---
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = primaryColor;
+    ctx.fillStyle = theme.primary;
     
-    ctx.font = `bold 22px "Inter", "system-ui", sans-serif`;
-    ctx.fillText(headerText, width / 2, height / 2 - 95); 
+    // 顶部状态
+    ctx.shadowBlur = 5;
+    ctx.font = `bold 20px "Inter", sans-serif`;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'; // 白色文字稍微高级点
+    ctx.fillText(headerText, width / 2, height / 2 - 100); 
 
-    // --- E. 绘制主要时间 ---
+    // 核心时间 (巨大化)
     ctx.fillStyle = '#ffffff';
-    ctx.font = `bold 140px "JetBrains Mono", "Courier New", monospace`; 
-    ctx.shadowBlur = 20; 
-    ctx.shadowColor = glowColor;
+    ctx.font = `bold 150px "JetBrains Mono", monospace`; 
+    ctx.shadowBlur = theme.textShadow; // 强发光
+    ctx.shadowColor = theme.glow;
     
     let timeStr = "";
     if (currentMode === 'overtime') timeStr = `+${formatTime(seconds)}`;
     else timeStr = seconds <= 0 ? "00:00" : formatTime(seconds);
     
-    ctx.fillText(timeStr, width / 2, height / 2 + 15);
+    ctx.fillText(timeStr, width / 2, height / 2 + 10);
 
-    // --- F. 绘制底部状态文字 ---
+    // 底部协议文字
     ctx.shadowBlur = 0; 
-    ctx.font = `bold 16px "Inter", sans-serif`;
-    ctx.fillStyle = primaryColor;
-    ctx.letterSpacing = "2px";
-    ctx.fillText(statusText, width / 2, height / 2 + 110);
+    ctx.font = `bold 14px "Inter", sans-serif`;
+    ctx.fillStyle = theme.primary;
+    ctx.letterSpacing = "4px"; // 增加字间距，显得更高级
+    ctx.fillText(statusText, width / 2, height / 2 + 120);
     
-    // --- G. 绘制底部能量条 ---
+    // --- 5. 绘制底部能量条 (分段式设计) ---
     if (currentMode !== 'overtime') {
-        ctx.fillStyle = 'rgba(255,255,255,0.1)';
-        ctx.fillRect(0, height - 10, width, 10);
+        const barHeight = 6;
+        const barWidth = width - 80;
+        const startX = 40;
+        const startY = height - 20;
         
-        ctx.fillStyle = primaryColor;
+        // 进度槽背景
+        ctx.fillStyle = 'rgba(255,255,255,0.1)';
+        ctx.fillRect(startX, startY, barWidth, barHeight);
+        
+        // 实体进度
+        ctx.fillStyle = theme.primary;
         ctx.shadowBlur = 10;
-        ctx.shadowColor = primaryColor;
-        ctx.fillRect(0, height - 10, width * (1 - progress), 10); 
+        const currentW = barWidth * (1 - progress);
+        ctx.fillRect(startX, startY, currentW, barHeight);
+
+        // 分割线 (制造能量格的效果)
+        ctx.fillStyle = '#000'; // 用黑色画分割线
+        for(let i=0; i<barWidth; i+=barWidth/20) { // 分成20格
+            if(i < currentW) {
+                ctx.fillRect(startX + i, startY, 2, barHeight);
+            }
+        }
     }
 
-    // --- H. 视频流保活 ---
+    // --- 6. 视频流保活 ---
     if (!video.srcObject) {
         const stream = canvas.captureStream();
         video.srcObject = stream;
@@ -2147,33 +2189,44 @@ const updateStudyStats = (seconds, log) => {
   };
 
 
-  const handleExportData = () => {
-    try {
-      const exportData = {
-        version: '2.0',
-        exportDate: new Date().toISOString(),
-        history: history,
-        progress: learningProgress,
-        settings: {
-          customTargetHours: customTargetHours,
-          customPersona: customPersona,
-          selectedProvider: selectedProvider,
-          apiBaseUrl: apiBaseUrl,
-          apiModel: apiModel
-        }
-      };
-      const str = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
-      const a = document.createElement('a'); 
-      a.href = str; 
-      a.download = `LevelUp_Backup_${getTodayDateString()}.json`; 
-      document.body.appendChild(a); 
-      a.click(); 
-      document.body.removeChild(a);
-      addNotification("完整数据导出成功！", "success");
-    } catch(err) {
-      addNotification("导出失败，请重试。", "error");
-    }
-  };
+ const handleExportData = () => {
+    try {
+      const exportData = {
+        version: '3.0', // 升级版本号
+        exportDate: new Date().toISOString(),
+        // 核心数据
+        history: history,
+        progress: learningProgress,
+        // 游戏化数据 (关键新增)
+        rankState: rankState,
+        heroPowers: heroPowers,
+        // 个性化配置
+        settings: {
+          customTargetHours: customTargetHours,
+          customPersona: customPersona,
+          customUserBackground: customUserBackground, // 新增
+          selectedProvider: selectedProvider,
+          apiBaseUrl: apiBaseUrl,
+          apiModel: apiModel,
+          userBubbleColor: userBubbleColor,
+          aiBubbleColor: aiBubbleColor,
+          deepThinkingMode: deepThinkingMode,
+          timerPresets: timerPresets, // 新增
+          customAlarmSound: customAlarmSound // 新增
+        }
+      };
+      const str = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
+      const a = document.createElement('a'); 
+      a.href = str; 
+      a.download = `LevelUp_Backup_${getTodayDateString()}.json`; 
+      document.body.appendChild(a); 
+      a.click(); 
+      document.body.removeChild(a);
+      addNotification("完整数据导出成功 (含段位/战力)！", "success");
+    } catch(err) {
+      addNotification("导出失败，请重试。", "error");
+    }
+  };
   
   const handleImportData = (e) => {
     const f = e.target.files[0]; 
@@ -2225,38 +2278,59 @@ const updateStudyStats = (seconds, log) => {
     e.target.value = '';
   };
 
-  const confirmImportData = (data) => {
-    try {
-      localStorage.setItem('levelup_history', JSON.stringify(data.history));
-      localStorage.setItem('levelup_progress', JSON.stringify(data.progress || initialProgress));
-      
-      if (data.version === '2.0' && data.settings) {
-        const settings = data.settings;
-        if (settings.customTargetHours !== undefined) {
-          localStorage.setItem('target_hours', settings.customTargetHours);
-        }
-        if (settings.customPersona) {
-          localStorage.setItem('ai_persona', settings.customPersona);
-        }
-        if (settings.selectedProvider) {
-          localStorage.setItem('ai_provider', settings.selectedProvider);
-        }
-        if (settings.apiBaseUrl) {
-          localStorage.setItem('ai_base_url', settings.apiBaseUrl);
-        }
-        if (settings.apiModel) {
-          localStorage.setItem('ai_model', settings.apiModel);
-        }
-      }
-      
-      loadData();
-      closeConfirm();
-      addNotification("数据导入成功！", "success");
-      setPendingImportData(null);
-    } catch (error) {
-      addNotification("导入过程中出现错误: " + error.message, "error");
-    }
-  };
+ const confirmImportData = (data) => {
+    try {
+      // 1. 恢复核心数据
+      if (data.history) {
+          localStorage.setItem('levelup_history', JSON.stringify(data.history));
+          setHistory(data.history);
+      }
+      if (data.progress) {
+          localStorage.setItem('levelup_progress', JSON.stringify(data.progress));
+          setLearningProgress(data.progress);
+      }
+
+      // 2. 恢复游戏化数据 (关键新增)
+      if (data.rankState) {
+          localStorage.setItem('moba_rank_state', JSON.stringify(data.rankState));
+          setRankState(data.rankState);
+      }
+      if (data.heroPowers) {
+          localStorage.setItem('moba_hero_powers', JSON.stringify(data.heroPowers));
+          setHeroPowers(data.heroPowers);
+      }
+
+      // 3. 恢复设置
+      if (data.settings) {
+        const s = data.settings;
+        if (s.customTargetHours) saveTargetHours(s.customTargetHours);
+        if (s.customPersona) { setCustomPersona(s.customPersona); localStorage.setItem('ai_persona', s.customPersona); }
+        if (s.customUserBackground) { setCustomUserBackground(s.customUserBackground); localStorage.setItem('user_background', s.customUserBackground); }
+        if (s.selectedProvider) { setSelectedProvider(s.selectedProvider); localStorage.setItem('ai_provider', s.selectedProvider); }
+        if (s.apiBaseUrl) { setApiBaseUrl(s.apiBaseUrl); localStorage.setItem('ai_base_url', s.apiBaseUrl); }
+        if (s.apiModel) { setApiModel(s.apiModel); localStorage.setItem('ai_model', s.apiModel); }
+        if (s.userBubbleColor && s.aiBubbleColor) saveBubbleColors(s.userBubbleColor, s.aiBubbleColor);
+        if (s.deepThinkingMode !== undefined) saveDeepThinkingMode(s.deepThinkingMode);
+        
+        if (s.timerPresets) {
+            setTimerPresets(s.timerPresets);
+            localStorage.setItem('timer_custom_presets', JSON.stringify(s.timerPresets));
+        }
+        if (s.customAlarmSound) {
+            setCustomAlarmSound(s.customAlarmSound);
+            localStorage.setItem('custom_alarm_sound', s.customAlarmSound);
+        }
+      }
+      
+      // 重新加载数据以确保所有状态同步
+      loadData();
+      closeConfirm();
+      addNotification("数据完美恢复！段位战力已同步。", "success");
+      setPendingImportData(null);
+    } catch (error) {
+      addNotification("导入过程中出现错误: " + error.message, "error");
+    }
+  };
 
   const fetchAvailableModels = async () => {
     if (!apiKey) return addNotification("请先输入 API Key！", "error");
