@@ -1446,8 +1446,14 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
         ctx.fillRect(0, height - 12, width * (1 - progress), 12); 
     }
 
-    // --- H. 视频流保活 (关键) ---
-    // 只有当视频暂停时才手动触发播放
+ // --- H. 视频流保活 (关键) ---
+    // 1. 关键修复：如果视频没有源，将 Canvas 的流赋给它
+    if (!video.srcObject) {
+        const stream = canvas.captureStream(); // 捕获 Canvas 画面
+        video.srcObject = stream;
+    }
+
+    // 2. 只有当视频暂停时才手动触发播放
     if (video.paused) {
         video.play().catch(() => {});
     }
