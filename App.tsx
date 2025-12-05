@@ -1504,32 +1504,29 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
     };
   }, [isActive, mode]);
 
+// --- 4. 优化：实时更新悬浮窗画面 (60FPS 高帧率渲染版) ---
+  useEffect(() => {
+    let animationFrameId;
 
+    // 定义渲染循环函数
+    const renderLoop = () => {
+      updatePiP(timeLeft, mode); // 每一帧都重绘
+      animationFrameId = requestAnimationFrame(renderLoop); // 请求下一帧
+    };
 
+    if (isPipActive) {
+      // 开启悬浮窗时：启动高帧率循环 (60FPS)
+      renderLoop();
+    } else if (isActive) {
+      // 没开悬浮窗时：仅在时间变化时重绘一次 (省电)
+      updatePiP(timeLeft, mode);
+    }
 
- // --- 4. 优化：实时更新悬浮窗画面 (加入定时刷新防黑屏) ---
-  useEffect(() => {
-     let intervalId;
-     
-     // 只要悬浮窗开着，就开启一个高频刷新器
-     if (isPipActive) {
-        // 立即画一次
-        updatePiP(timeLeft, mode);
-        
-        // 每秒强制刷新一次画面 (防止视频流因画面静止被浏览器暂停导致黑屏)
-        // 同时也负责驱动“时间到”时的闪烁效果
-        intervalId = setInterval(() => {
-            updatePiP(timeLeft, mode);
-        }, 500);
-     } else if (isActive) {
-        // 如果没开悬浮窗，但计时器在跑，只在 timeLeft 变化时更新 (这是上面的 useEffect 做的)
-        updatePiP(timeLeft, mode);
-     }
-
-     return () => {
-        if (intervalId) clearInterval(intervalId);
-     };
-  }, [timeLeft, mode, isActive, isPipActive]);
+    // 清理函数：组件卸载或状态变化时停止动画，防止内存泄漏
+    return () => {
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+    };
+  }, [timeLeft, mode, isActive, isPipActive]);
 
   useEffect(() => {
     if (chatMessages.length > 0) {
