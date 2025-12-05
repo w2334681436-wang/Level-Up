@@ -818,6 +818,39 @@ const DEFAULT_PRESETS = {
   overtime: []
 };
 
+// ==================== 0. 新增工具：防休眠高精度定时器 (Web Worker) ====================
+// 解决浏览器后台运行时 setInterval 变慢/卡顿的核心方案
+function createWorkerTimer(callback, interval) {
+  // 创建一个内联 Worker
+  const blob = new Blob([`
+    let timerId;
+    self.onmessage = function(e) {
+      if (e.data === 'start') {
+        // 在 Worker 线程中计时，不受页面后台休眠影响
+        timerId = setInterval(() => {
+          self.postMessage('tick');
+        }, ${interval});
+      } else if (e.data === 'stop') {
+        clearInterval(timerId);
+      }
+    };
+  `], { type: 'application/javascript' });
+
+  const worker = new Worker(URL.createObjectURL(blob));
+  
+  worker.onmessage = () => {
+    callback();
+  };
+
+  return {
+    start: () => worker.postMessage('start'),
+    stop: () => worker.postMessage('stop'),
+    terminate: () => worker.terminate()
+  };
+}
+
+// ==================== 1. 考研荣耀核心配置 (配置区) ====================
+
 // --- 5. 主组件 ---
 export default function LevelUpApp() {
   // 1. 先定义所有的 State (必须放在最前面！)
@@ -1340,34 +1373,37 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
     const total = initialTime > 0 ? initialTime : 1;
     const progress = Math.max(0, Math.min(1, (total - seconds) / total));
 
-    // --- A. 定义主题色与文案 ---
+    // --- A. 定义主题色与文案 (修改部分) ---
     let primaryColor, glowColor, statusText, headerText;
-    // 呼吸动画因子 (0.4 ~ 1.0 之间循环)
     const pulse = 0.4 + Math.abs(Math.sin(Date.now() / 800)) * 0.6; 
+    
+    // >>>>> 新增：动态点点点计算 (500ms 变化一次) <<<<<
+    const dotCycle = Math.floor(Date.now() / 500) % 4; 
+    const dots = ".".repeat(dotCycle); // 生成 "", ".", "..", "..."
 
-    if (seconds <= 0 && currentMode === 'focus') { // 专注结束
-        const flash = Math.floor(Date.now() / 250) % 2; // 急促闪烁
-        primaryColor = flash ? '#ef4444' : '#7f1d1d'; 
-        glowColor = '#ef4444';
-        statusText = "VICTORY PENDING"; // 等待结算
+    if (seconds <= 0 && currentMode === 'focus') { 
+        // ... existing code ...
+        statusText = "VICTORY PENDING"; 
         headerText = "⚠ 专注目标达成";
-    } else if (currentMode === 'overtime') { // 加时 (巅峰赛)
-        primaryColor = '#fbbf24'; // 金色
+    } else if (currentMode === 'overtime') { 
+        primaryColor = '#fbbf24'; 
         glowColor = '#d97706';
-        statusText = `PEAK SCORE: ${rankState.peakScore}`; // 显示巅峰分
-        headerText = `🏆 巅峰赛 • 加时激战中`;
-    } else if (currentMode === 'break') { // 休息
-        primaryColor = '#60a5fa'; // 蓝色
+        statusText = `PEAK SCORE: ${rankState.peakScore}`; 
+        // 修改：加上 dots
+        headerText = `🏆 巅峰赛 • 加时激战中${dots}`;
+    } else if (currentMode === 'break') { 
+        primaryColor = '#60a5fa'; 
         glowColor = '#2563eb';
-        statusText = "RECOVERING...";
-        headerText = "💤 泉水回血中...";
-    } else { // 专注 (排位赛)
-        primaryColor = '#34d399'; // 青色
+        // 修改：去掉原本静态的...，加上动态 dots
+        statusText = `RECOVERING${dots}`;
+        headerText = `💤 泉水回血中${dots}`;
+    } else { 
+        primaryColor = '#34d399'; 
         glowColor = '#059669';
         statusText = "DEEP WORK PROTOCOL";
-        headerText = "⚡ RANKED MATCH • 对局进行中";
+        // 修改：加上 dots
+        headerText = `⚡ RANKED MATCH • 对局进行中${dots}`;
     }
-
     // --- B. 绘制背景 (深色科技底) ---
     ctx.fillStyle = '#050505'; // 近乎纯黑
     ctx.fillRect(0, 0, width, height);
@@ -1537,13 +1573,20 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
 
   useEffect(() => { loadData(); }, []);
 
- // --- 核心计时器逻辑 (已修改：支持加时模式) ---
+// --- 核心计时器逻辑 (已修改：使用 Web Worker 防卡顿) ---
   useEffect(() => {
     if (isActive) {
       // 1. 记录开始状态
       saveTimerState(true, timeLeft, initialTime, mode);
       
-      timerRef.current = setInterval(() => {
+      // >>>>> 修改开始：使用 Worker Timer 替换 setInterval <<<<<
+      // 创建 Worker 计时器，间隔 1000ms
+      const workerTimer = createWorkerTimer(() => {
+        // 这里是回调函数，相当于原来的 setInterval 内部逻辑
+        
+        // 注意：在 React 的 useEffect 闭包中，我们需要小心处理 state 更新
+        // 这里使用函数式更新 setTimeLeft(prev => ...) 是安全的
+        
         if (mode === 'overtime') {
            // >>> 加时模式：正计时 <<<
            setTimeLeft((prev) => prev + 1); 
@@ -1553,16 +1596,16 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
            setTimeLeft((prev) => {
              const newTime = prev - 1;
              
-             // A. 如果专注时间到了 (Focus Time Up)
+             // A. 如果专注时间到了
              if (newTime <= 0 && mode === 'focus') {
-               clearInterval(timerRef.current);
-               handleFocusTimeUp(); // 触发询问弹窗
+               workerTimer.stop(); // 停止 Worker
+               handleFocusTimeUp(); 
                return 0;
              }
              
              // B. 如果休息或游戏时间到了
              if (newTime <= 0 && mode !== 'focus') {
-                clearInterval(timerRef.current);
+                workerTimer.stop(); // 停止 Worker
                 handleTimerComplete();
                 return 0;
              }
@@ -1572,16 +1615,30 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
         }
       }, 1000);
 
+      // 启动 Worker
+      workerTimer.start();
+      
+      // 将 worker 实例存入 ref，方便 cleanup
+      timerRef.current = workerTimer;
+      // >>>>> 修改结束 <<<<<
+
     } else {
       // 暂停状态
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (timerRef.current) {
+          timerRef.current.stop(); // 调用 worker 的 stop
+          if(timerRef.current.terminate) timerRef.current.terminate(); // 彻底销毁防内存泄漏
+      }
       saveTimerState(false, timeLeft, initialTime, mode);
     }
     
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      // 组件卸载或依赖变化时清理
+      if (timerRef.current) {
+          timerRef.current.stop();
+          if(timerRef.current.terminate) timerRef.current.terminate();
+      }
     };
-  }, [isActive, timeLeft, initialTime, mode]);
+  }, [isActive, timeLeft, initialTime, mode]); // 依赖项保持不变
 
 // --- 终极版：每日自动复盘 (防重复 + 隐式触发) ---
   useEffect(() => {
