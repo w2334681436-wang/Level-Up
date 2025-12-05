@@ -199,89 +199,221 @@ const initialProgress = {
   cs: { content: "数据结构完成了链表和栈的初步学习。", lastUpdate: getTodayDateString() },
 };
 
-// --- 新增：等级系统逻辑 ---
-// 专家设计：采用非线性升级曲线，前期升级快（正反馈强），后期升级慢（不仅是积累，更是沉淀）
-// 设定：每 60 分钟 = 100 XP。
-// 升级所需 XP = 当前等级 * 100 * 1.2 (难度递增)
-const calculateLevelStats = (totalMinutes) => {
-  const XP_PER_HOUR = 100;
-  let currentXp = totalMinutes * (XP_PER_HOUR / 60); // 总经验值
-  let level = 1;
-  let xpForNextLevel = 100; // 初始升级经验
-  
-  // 循环扣除经验升级
-  while (currentXp >= xpForNextLevel) {
-    currentXp -= xpForNextLevel;
-    level++;
-    xpForNextLevel = Math.floor(xpForNextLevel * 1.1); // 每一级难度增加 10%
-  }
 
-  // 获得称号
-  const getTitle = (lv) => {
-    if (lv <= 5) return "考研萌新";
-    if (lv <= 10) return "自律学徒";
-    if (lv <= 20) return "专注达人";
-    if (lv <= 35) return "学术精英";
-    if (lv <= 50) return "卷王之王";
-    if (lv <= 70) return "准研究生";
-    return "学术泰斗";
-  };
+// ==================== 1. 考研荣耀核心配置 (配置区) ====================
 
-  return {
-    level,
-    currentXp: Math.floor(currentXp),
-    xpForNextLevel: Math.floor(xpForNextLevel),
-    progressPercent: Math.min((currentXp / xpForNextLevel) * 100, 100),
-    title: getTitle(level)
-  };
+const RANK_CONFIG = [
+  { name: '倔强青铜', id: 'bronze', subTiers: 3, starsPerTier: 3, iconColor: 'text-amber-700' }, // 青铜III-I，每段3星
+  { name: '秩序白银', id: 'silver', subTiers: 3, starsPerTier: 3, iconColor: 'text-gray-400' },
+  { name: '荣耀黄金', id: 'gold', subTiers: 4, starsPerTier: 4, iconColor: 'text-yellow-400' },
+  { name: '尊贵铂金', id: 'platinum', subTiers: 4, starsPerTier: 4, iconColor: 'text-cyan-300' },
+  { name: '永恒钻石', id: 'diamond', subTiers: 5, starsPerTier: 5, iconColor: 'text-fuchsia-400' }, // 钻石5星晋级
+  { name: '至尊星耀', id: 'starshine', subTiers: 5, starsPerTier: 5, iconColor: 'text-orange-400' },
+  { name: '最强王者', id: 'king', subTiers: 1, starsPerTier: 50, iconColor: 'text-yellow-500' }, // 0-49星
+  { name: '荣耀王者', id: 'glory_king', subTiers: 1, starsPerTier: 50, iconColor: 'text-red-500' }, // 50-99星
+  { name: '传奇王者', id: 'legendary_king', subTiers: 1, starsPerTier: 9999, iconColor: 'text-purple-500' } // 100+星 (新增)
+];
+
+// 战力牌子阈值 (根据你的要求修改)
+const BADGE_THRESHOLDS = [
+  { score: 20000, name: '大国标', color: 'bg-red-600 text-white border border-yellow-300 shadow-[0_0_10px_gold]' }, // 20000
+  { score: 15000, name: '小国标', color: 'bg-red-600 text-white' }, // 15000
+  { score: 10000, name: '省标', color: 'bg-yellow-500 text-black' }, // 10000
+  { score: 7000, name: '市标', color: 'bg-gray-300 text-black' },    // 7000
+  { score: 4000, name: '县标', color: 'bg-amber-700 text-white' },    // 4000
+  { score: 0, name: '无标', color: 'bg-gray-800 text-gray-500' }
+];
+
+// 分路配置 (映射你的科目)
+const LANE_CONFIG = {
+  math: { role: '打野', icon: '⚔️', name: '数学 (野王)', factor: 1.2 }, // 核心C位
+  cs: { role: '射手', icon: '🏹', name: '408 (射手)', factor: 1.1 },   // 后期大核
+  english: { role: '中路', icon: '🪄', name: '英语 (法师)', factor: 1.0 },
+  politics: { role: '辅助', icon: '🛡️', name: '政治 (辅助)', factor: 0.9 }
 };
 
-// --- 新增：等级展示组件 ---
-const UserLevelSystem = ({ history, todayMinutes }) => {
-  // 计算总时长：历史记录 + 今天的时长
-  const totalHistoryMinutes = history.reduce((acc, curr) => acc + (curr.studyMinutes || 0), 0);
-  const totalAllTime = totalHistoryMinutes + todayMinutes;
-  
-  const stats = calculateLevelStats(totalAllTime);
+// ==================== 2. 核心计算逻辑 (逻辑区) ====================
 
-  return (
-    <div className="bg-gradient-to-r from-gray-900 to-gray-800 p-4 rounded-xl border border-gray-700 shadow-lg relative overflow-hidden group">
-      {/* 背景特效 */}
-      <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:bg-cyan-500/20 transition-all"></div>
-      
-      <div className="flex justify-between items-end mb-2 relative z-10">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-lg flex items-center justify-center shadow-lg transform rotate-3 group-hover:rotate-6 transition-transform">
-             <span className="font-black text-xl text-white italic">Lv.{stats.level}</span>
-          </div>
-          <div>
-            <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Current Rank</div>
-            <div className="text-white font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-300 to-blue-300">
-              {stats.title}
-            </div>
-          </div>
-        </div>
-        <div className="text-right">
-           <div className="text-xs text-cyan-400 font-mono font-bold">
-             {stats.currentXp} <span className="text-gray-500">/</span> {stats.xpForNextLevel} XP
-           </div>
-           <div className="text-[10px] text-gray-500">总投入: {(totalAllTime / 60).toFixed(1)} 小时</div>
-        </div>
-      </div>
+// 计算具体段位
+const calculateRankDetails = (totalStars) => {
+  let remainingStars = totalStars;
+  
+  for (let i = 0; i < RANK_CONFIG.length; i++) {
+    const rank = RANK_CONFIG[i];
+    
+    // 王者段位特殊处理 (无小段位，直接堆星)
+    if (['king', 'glory_king', 'legendary_king'].includes(rank.id)) {
+       const threshold = rank.starsPerTier;
+       // 如果是最后一个段位(传奇王者)或者星星不够升级了，就停在这里
+       if (rank.id === 'legendary_king' || remainingStars < threshold) {
+          // 对于荣耀王者和传奇王者，显示的星数是总星数
+          // 王者(0-49), 荣耀(50-99), 传奇(100+)
+          let displayStars = totalStars; 
+          // 修正逻辑：如果只想显示当前段位的星数，可以调整，但通常王者是看总星
+          return { ...rank, subTierDisplay: '', currentStars: remainingStars, totalDisplayStars: totalStars, isKing: true };
+       }
+       remainingStars -= threshold;
+       continue;
+    }
 
-      {/* 经验条 */}
-      <div className="h-3 w-full bg-black/40 rounded-full overflow-hidden border border-white/5 relative z-10">
-        <div 
-          className="h-full bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 shadow-[0_0_10px_rgba(6,182,212,0.5)] transition-all duration-1000 ease-out relative"
-          style={{ width: `${stats.progressPercent}%` }}
-        >
-          {/* 扫光动画 */}
-          <div className="absolute inset-0 bg-white/30 w-full animate-[shimmer_2s_infinite] translate-x-[-100%]"></div>
-        </div>
-      </div>
-    </div>
-  );
+    // 普通段位 (有小段位，如青铜 I, II, III)
+    const starsInThisRank = rank.subTiers * rank.starsPerTier;
+    if (remainingStars < starsInThisRank) {
+      // 计算小段位: 剩余星星 / 每段星星数。
+      // 例如青铜(每段3星)，剩4颗星 -> 4/3 = 1余1 -> 是第2个小段位(II)的第1颗星
+      // 注意：王者荣耀通常是倒序：III -> II -> I。index 0 是最低段。
+      const subTierIndex = Math.floor(remainingStars / rank.starsPerTier); 
+      const currentStars = remainingStars % rank.starsPerTier;
+      
+      const romanNumerals = ["V", "IV", "III", "II", "I"]; // 最多5段
+      // 截取当前段位实际的小段数
+      const actualRomans = romanNumerals.slice(5 - rank.subTiers);
+      
+      return { 
+        ...rank, 
+        subTierDisplay: actualRomans[subTierIndex] || 'I', 
+        currentStars, // 当前小段位的星星
+        isKing: false,
+        // 晋级赛判断：当前是该大段位的最后一个小段位 (subTierIndex 是最后一个)，且星星满了
+        isPromo: subTierIndex === rank.subTiers - 1 && currentStars === rank.starsPerTier - 1
+      };
+    }
+    remainingStars -= starsInThisRank;
+  }
+  return RANK_CONFIG[0]; // 默认青铜
 };
+
+// 计算今日净胜星数 (严格执行你的4小时分界线规则)
+const calculateDailyNetStars = (minutes) => {
+  const hours = minutes / 60;
+  if (hours < 1) return -4; // 0-1h 扣4星
+  if (hours < 2) return -3; // 1-2h 扣3星
+  if (hours < 3) return -2; // 2-3h 扣2星
+  if (hours < 4) return -1; // 3-4h 扣1星
+  if (hours < 5) return 0;  // 4-5h 保级 (不加不扣)
+  if (hours < 6) return 1;  // 5-6h 加1星
+  return 1 + Math.floor(hours - 5); // 之后每多1小时加1星
+};
+
+// ==================== 3. 新 UI 组件 (界面区) ====================
+
+const MobaRankCard = ({ totalStars, todayMinutes, peakScore, season, heroPowers }) => {
+  const rank = calculateRankDetails(totalStars);
+  const netStars = calculateDailyNetStars(todayMinutes);
+  const nextHourNet = calculateDailyNetStars(todayMinutes + 60);
+  
+  // 晋级赛逻辑：是大段位晋级 + 今日还没学够8小时
+  const isPromoMatch = rank.isPromo; 
+  const promoRequirementMet = todayMinutes >= 8 * 60;
+
+  // 获取最高战力科目
+  let maxPower = 0;
+  let maxBadge = '无标';
+  Object.values(heroPowers || {}).forEach(score => {
+     if (score > maxPower) maxPower = score;
+  });
+  const getBadgeName = (s) => (BADGE_THRESHOLDS.find(b => s >= b.score) || BADGE_THRESHOLDS[5]).name;
+  maxBadge = getBadgeName(maxPower);
+
+  return (
+    <div className="bg-gradient-to-br from-[#0f1119] via-[#1a1c2e] to-black p-4 rounded-xl border border-blue-900/50 shadow-2xl relative overflow-hidden group mb-4">
+      {/* 赛季标识 */}
+      <div className="flex justify-between items-start mb-2 relative z-10">
+         <div className="bg-black/60 border border-gray-700 px-2 py-0.5 rounded text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+           {season} 赛季
+         </div>
+         {peakScore > 0 && (
+           <div className="flex items-center gap-1 bg-gradient-to-r from-amber-900/50 to-black px-2 py-0.5 rounded border border-amber-600">
+             <span className="text-amber-500 text-[10px] font-bold">巅峰赛</span>
+             <span className="text-white font-mono text-xs font-bold">{peakScore}</span>
+           </div>
+         )}
+      </div>
+
+      <div className="flex items-center gap-4 relative z-10">
+        {/* 左侧：大段位图标 */}
+        <div className="relative flex-shrink-0">
+           <div className={`w-20 h-20 flex items-center justify-center rounded-full bg-gradient-to-b from-gray-800 to-black border-[3px] ${rank.id.includes('king') ? 'border-yellow-500 shadow-[0_0_20px_rgba(234,179,8,0.4)]' : 'border-gray-600'} shadow-lg`}>
+              <span className={`text-3xl ${rank.iconColor} drop-shadow-md`}>
+                 {rank.id.includes('king') ? '👑' : '🛡️'}
+              </span>
+           </div>
+           {/* 段位名 */}
+           <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap bg-gray-900/90 px-2 py-0.5 rounded text-[10px] font-bold border border-gray-700 text-white shadow-lg">
+             {rank.name} {rank.subTierDisplay}
+           </div>
+        </div>
+
+        {/* 右侧：数据与状态 */}
+        <div className="flex-1 min-w-0">
+           <div className="flex items-baseline gap-1 mb-1">
+              <span className={`text-2xl font-black italic ${rank.iconColor}`}>
+                x{rank.isKing ? rank.totalDisplayStars : rank.currentStars}
+              </span>
+              <span className="text-gray-500 text-[10px]">当前星数</span>
+              {/* 显示最高牌子 */}
+              <span className="ml-auto text-[10px] px-1.5 py-0.5 bg-gray-800 rounded text-gray-300 border border-gray-700">
+                 最高: {maxBadge}
+              </span>
+           </div>
+
+           {/* 晋级赛特殊UI */}
+           {isPromoMatch && (
+             <div className={`text-[10px] px-2 py-1 rounded mb-2 border flex items-center gap-1 animate-pulse ${promoRequirementMet ? 'bg-green-900/30 border-green-500 text-green-400' : 'bg-red-900/30 border-red-500 text-red-400'}`}>
+               <span>⚡ 晋级赛:</span>
+               <span>{promoRequirementMet ? '条件已达成' : `需学满8h (当前 ${(todayMinutes/60).toFixed(1)})`}</span>
+             </div>
+           )}
+
+           {/* 今日结算预测 */}
+           <div className="bg-[#111] rounded p-2 border border-gray-800 flex justify-between items-center">
+              <div>
+                 <div className="text-[10px] text-gray-500">今日结算预测</div>
+                 <div className="text-[10px] text-gray-600">
+                   {netStars < 0 ? `再学1h: 少扣1星` : `再学1h: +1星`}
+                 </div>
+              </div>
+              <div className={`text-lg font-bold font-mono ${netStars >= 0 ? 'text-green-400' : 'text-red-500'}`}>
+                 {netStars > 0 ? '+' : ''}{netStars}
+              </div>
+           </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const HeroPowerList = ({ powers }) => {
+  const getBadge = (score) => {
+    return BADGE_THRESHOLDS.find(b => score >= b.score) || BADGE_THRESHOLDS[BADGE_THRESHOLDS.length - 1];
+  };
+
+  return (
+    <div className="grid grid-cols-2 gap-2 mb-4">
+      {Object.entries(LANE_CONFIG).map(([key, config]) => {
+         const score = powers[key] || 0;
+         const badge = getBadge(score);
+         
+         return (
+           <div key={key} className="bg-[#151725] p-2 rounded-lg border border-gray-800/60 flex items-center gap-2 hover:bg-[#1a1c2e] transition-colors group relative">
+              <div className="text-xl group-hover:scale-110 transition-transform">{config.icon}</div>
+              <div className="flex-1 min-w-0">
+                 <div className="flex justify-between items-center mb-0.5">
+                    <span className="text-[10px] font-bold text-gray-500">{config.role}</span>
+                    <span className={`text-[8px] px-1 rounded transform scale-90 origin-right ${badge.color}`}>
+                       {badge.name}
+                    </span>
+                 </div>
+                 <div className="text-xs font-bold text-gray-200 truncate">{config.name}</div>
+                 <div className="text-[10px] font-mono text-cyan-500">战力: {score}</div>
+              </div>
+           </div>
+         );
+      })}
+    </div>
+  );
+};
+
 
 // --- 4. 组件：学习进度面板 ---
 const LearningProgressPanel = ({ learningProgress, onProgressUpdate, isMobileView }) => {
@@ -709,6 +841,31 @@ export default function LevelUpApp() {
   const [todayStats, setTodayStats] = useState({ date: getTodayDateString(), studyMinutes: 0, gameBank: 0, gameUsed: 0, logs: [] });
   const [history, setHistory] = useState([]);
   const [learningProgress, setLearningProgress] = useState(initialProgress); 
+  // --- 考研荣耀：段位与战力系统状态 ---
+  const [rankState, setRankState] = useState(() => {
+    try {
+      const saved = localStorage.getItem('moba_rank_state');
+      // 默认初始：青铜III (3*3) - 3(当前3) = 总星星0 ? 
+      // 不，我们给点初始资金，比如 3 颗星 (青铜III满星)
+      return saved ? JSON.parse(saved) : { 
+        totalStars: 3, 
+        season: `${new Date().getMonth() + 1}月赛季`, // 自动生成当前月份赛季
+        highestRank: '倔强青铜 III',
+        peakScore: 1200 // 巅峰赛初始分
+      };
+    } catch (e) {
+      return { totalStars: 3, season: 'S1', highestRank: '青铜', peakScore: 1200 };
+    }
+  });
+
+  const [heroPowers, setHeroPowers] = useState(() => {
+    try {
+      const saved = localStorage.getItem('moba_hero_powers');
+      return saved ? JSON.parse(saved) : { math: 0, english: 0, politics: 0, cs: 0 };
+    } catch (e) {
+      return { math: 0, english: 0, politics: 0, cs: 0 };
+    }
+  });
   
   // AI 设置状态
   const [apiKey, setApiKey] = useState(''); 
@@ -1487,20 +1644,137 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
     return () => document.removeEventListener("fullscreenchange", handleFsChange);
   }, []);
 
- const updateStudyStats = (seconds, log) => {
+const updateStudyStats = (seconds, log) => {
     const m = Math.floor(seconds / 60);
     const g = Math.floor(m / 10); 
+    
+    // 1. 基础数据更新
     const newStats = { 
       ...todayStats, 
       studyMinutes: todayStats.studyMinutes + m, 
       gameBank: todayStats.gameBank + g, 
       logs: [...todayStats.logs, { time: new Date().toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'}), content: log, duration: m }] 
     };
-    saveData(newStats);
     
-    // 调用智能更新 (不需要 await，让它在后台跑)
+    // 2. 战力更新 (Hero Power)
+    const lowerLog = log.toLowerCase();
+    let targetSubject = null;
+    
+    // 关键词匹配分路
+    if (lowerLog.includes('数学') || lowerLog.includes('math') || lowerLog.includes('高数')) targetSubject = 'math';
+    else if (lowerLog.includes('英语') || lowerLog.includes('english') || lowerLog.includes('单词')) targetSubject = 'english';
+    else if (lowerLog.includes('政治') || lowerLog.includes('politics') || lowerLog.includes('肖秀荣')) targetSubject = 'politics';
+    else if (lowerLog.includes('408') || lowerLog.includes('cs') || lowerLog.includes('数据结构')) targetSubject = 'cs';
+    
+    if (targetSubject) {
+       // 基础分：1分钟 = 10战力 (可调整)
+       const baseScore = m * 10; 
+       const laneFactor = LANE_CONFIG[targetSubject].factor;
+       
+       // 巅峰系数加成：(巅峰分 - 1200) / 100 * 1% (每100分加1%)
+       // 例如 1500分 -> 加成 3%
+       const peakFactor = 1 + Math.max(0, (rankState.peakScore - 1200) / 10000);
+       
+       const scoreToAdd = Math.floor(baseScore * laneFactor * peakFactor);
+       
+       setHeroPowers(prev => {
+         const newState = { ...prev, [targetSubject]: prev[targetSubject] + scoreToAdd };
+         localStorage.setItem('moba_hero_powers', JSON.stringify(newState));
+         return newState;
+       });
+       
+       addNotification(`战力增加: ${LANE_CONFIG[targetSubject].name} +${scoreToAdd}`, "success");
+    }
+
+    // 3. 加时模式下：增加巅峰积分
+    if (mode === 'overtime') {
+       // 加时 1分钟 = +2 巅峰分 (可调整难度)
+       const peakAdded = m * 2;
+       setRankState(prev => {
+         const newState = { ...prev, peakScore: prev.peakScore + peakAdded };
+         localStorage.setItem('moba_rank_state', JSON.stringify(newState));
+         return newState;
+       });
+       addNotification(`巅峰积分 +${peakAdded}`, "success");
+    }
+
+    setTodayStats(newStats);
+    saveData(newStats); // 保存历史
     autoUpdateProgress(log, learningProgress); 
   };
+
+  // --- 每日结算监听器 ---
+  useEffect(() => {
+    // 只有当历史数据加载完毕后才运行
+    if (loading) return;
+
+    const lastSettleDate = localStorage.getItem('last_settle_date');
+    const today = getTodayDateString();
+    
+    // 如果上次结算不是今天，且历史记录里有昨天的数据（或者是新的一天开始）
+    if (lastSettleDate !== today) {
+       // 获取昨天日期
+       const d = new Date();
+       d.setDate(d.getDate() - 1);
+       const yesterdayStr = d.toISOString().split('T')[0];
+       
+       // 从历史里找昨天的数据
+       const yesterdayData = history.find(d => d.date === yesterdayStr);
+       const yesterdayMins = yesterdayData ? yesterdayData.studyMinutes : 0;
+       
+       // 计算星星变化
+       const starsChange = calculateDailyNetStars(yesterdayMins);
+       
+       // 晋级赛判定
+       const currentDetails = calculateRankDetails(rankState.totalStars);
+       const isPromo = currentDetails.isPromo;
+       
+       let finalChange = starsChange;
+       let promoMsg = "";
+
+       // 晋级赛特殊规则：如果是晋级点，且昨天没学够8小时(480分钟)
+       if (isPromo && starsChange > 0 && yesterdayMins < 480) {
+          finalChange = 0; // 强制不能加星
+          promoMsg = "\n⛔ 晋级赛失败：昨日未达8小时考核线";
+       }
+
+       // 更新状态
+       const newTotalStars = Math.max(0, rankState.totalStars + finalChange);
+       
+       // 赛季轮换检测 (简单的月份轮换)
+       const currentMonthSeason = `${new Date().getMonth() + 1}月赛季`;
+       let seasonMsg = "";
+       let finalSeason = rankState.season;
+       
+       if (rankState.season !== currentMonthSeason) {
+           // 新赛季！
+           finalSeason = currentMonthSeason;
+           seasonMsg = `\n🎉 新赛季开启！当前为 ${currentMonthSeason}`;
+           // 这里可以加重置段位逻辑，比如 totalStars * 0.8
+       }
+
+       const newRankState = {
+           ...rankState,
+           totalStars: newTotalStars,
+           season: finalSeason
+       };
+       
+       setRankState(newRankState);
+       localStorage.setItem('moba_rank_state', JSON.stringify(newRankState));
+       localStorage.setItem('last_settle_date', today);
+       
+       // 弹窗通知
+       if (yesterdayMins > 0 || finalChange !== 0) {
+         setConfirmState({
+           isOpen: true,
+           title: "📅 昨日排位结算报告",
+           message: `昨日投入: ${(yesterdayMins/60).toFixed(1)} 小时\n段位变更: ${finalChange >= 0 ? '+' : ''}${finalChange} ⭐${promoMsg}${seasonMsg}\n当前段位: ${calculateRankDetails(newTotalStars).name}`,
+           onConfirm: closeConfirm,
+           confirmText: "我以此为荣"
+         });
+       }
+    }
+  }, [loading, history, rankState]);
 
   const updateGameStats = (seconds) => {
     const m = Math.floor(seconds / 60);
@@ -2378,7 +2652,16 @@ ${todayLogDetails}`;
               )}
             </button>
 
-            <UserLevelSystem history={history} todayMinutes={todayStats.studyMinutes} />
+          {/* --- 桌面端：考研荣耀段位卡片 --- */}
+<MobaRankCard 
+  totalStars={rankState.totalStars} 
+  todayMinutes={todayStats.studyMinutes} 
+  peakScore={rankState.peakScore} 
+  season={rankState.season}
+  heroPowers={heroPowers}
+/>
+{/* --- 桌面端：分路战力榜 --- */}
+<HeroPowerList powers={heroPowers} />
           
             <button 
               onClick={() => setShowHistory(true)}
@@ -2479,7 +2762,16 @@ ${todayLogDetails}`;
         </div>
 
         <div className={`md:hidden w-full space-y-4 pt-4 overflow-y-auto ${activeView !== 'stats' ? 'hidden' : ''}`}>
-          <UserLevelSystem history={history} todayMinutes={todayStats.studyMinutes} />
+         {/* --- 移动端：考研荣耀段位卡片 --- */}
+<MobaRankCard 
+  totalStars={rankState.totalStars} 
+  todayMinutes={todayStats.studyMinutes} 
+  peakScore={rankState.peakScore} 
+  season={rankState.season}
+  heroPowers={heroPowers}
+/>
+{/* --- 移动端：分路战力榜 --- */}
+<HeroPowerList powers={heroPowers} />
           <div className="bg-[#111116] rounded-xl p-4 border border-gray-800">
             <div className="flex items-center gap-2 mb-3">
               <BarChart3 className="w-5 h-5 text-emerald-400" />
