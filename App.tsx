@@ -1326,7 +1326,7 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
     localStorage.setItem('ai_unread_messages', count.toString());
   };
 
-// --- 2. 增强版：绘制悬浮窗内容 (赛博朋克 UI 重构) ---
+// --- 2. 增强版：绘制悬浮窗内容 (HUD 战术面板风格) ---
   const updatePiP = (seconds, currentMode) => {
     const canvas = canvasRef.current;
     const video = videoRef.current;
@@ -1336,94 +1336,116 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
     const width = canvas.width;
     const height = canvas.height;
     
-    // 计算进度百分比 (用于底部进度条)
+    // 计算进度百分比
     const total = initialTime > 0 ? initialTime : 1;
     const progress = Math.max(0, Math.min(1, (total - seconds) / total));
 
-    // --- A. 定义主题色 ---
-    let primaryColor, glowColor, statusText;
-    if (seconds <= 0 && currentMode === 'focus') { // 时间到
-        const flash = Math.floor(Date.now() / 500) % 2;
-        primaryColor = flash ? '#ef4444' : '#ffffff'; // 红白闪烁
+    // --- A. 定义主题色与文案 ---
+    let primaryColor, glowColor, statusText, headerText;
+    // 呼吸动画因子 (0.4 ~ 1.0 之间循环)
+    const pulse = 0.4 + Math.abs(Math.sin(Date.now() / 800)) * 0.6; 
+
+    if (seconds <= 0 && currentMode === 'focus') { // 专注结束
+        const flash = Math.floor(Date.now() / 250) % 2; // 急促闪烁
+        primaryColor = flash ? '#ef4444' : '#7f1d1d'; 
         glowColor = '#ef4444';
-        statusText = "SESSION COMPLETE";
-    } else if (currentMode === 'overtime') { // 加时
+        statusText = "VICTORY PENDING"; // 等待结算
+        headerText = "⚠ 专注目标达成";
+    } else if (currentMode === 'overtime') { // 加时 (巅峰赛)
         primaryColor = '#fbbf24'; // 金色
         glowColor = '#d97706';
-        statusText = "GOLDEN OVERTIME";
+        statusText = `PEAK SCORE: ${rankState.peakScore}`; // 显示巅峰分
+        headerText = `🏆 巅峰赛 • 加时激战中`;
     } else if (currentMode === 'break') { // 休息
         primaryColor = '#60a5fa'; // 蓝色
         glowColor = '#2563eb';
-        statusText = "SYSTEM RECHARGE";
-    } else { // 专注 (默认)
-        primaryColor = '#34d399'; // 翠绿/青色
+        statusText = "RECOVERING...";
+        headerText = "💤 泉水回血中...";
+    } else { // 专注 (排位赛)
+        primaryColor = '#34d399'; // 青色
         glowColor = '#059669';
         statusText = "DEEP WORK PROTOCOL";
+        headerText = "⚡ RANKED MATCH • 对局进行中";
     }
 
     // --- B. 绘制背景 (深色科技底) ---
-    ctx.fillStyle = '#0a0a0a'; // 纯黑底
+    ctx.fillStyle = '#050505'; // 近乎纯黑
     ctx.fillRect(0, 0, width, height);
     
-    // 绘制微弱的扫描线背景 (增加质感)
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
-    for (let i = 0; i < height; i += 4) {
+    // 扫描线特效 (增加电竞屏质感)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
+    for (let i = 0; i < height; i += 3) {
         ctx.fillRect(0, i, width, 1);
     }
 
     // --- C. 绘制霓虹边框 ---
-    ctx.lineWidth = 8;
+    ctx.lineWidth = 6;
     ctx.strokeStyle = primaryColor;
     ctx.shadowBlur = 15;
     ctx.shadowColor = glowColor;
     ctx.strokeRect(0, 0, width, height);
-    
-    // 重置阴影，避免影响内部元素太重
-    ctx.shadowBlur = 0;
+    ctx.shadowBlur = 0; // 重置阴影
 
-    // --- D. 绘制防黑屏“心跳”像素 (保持活跃) ---
+    // --- D. 绘制防黑屏“心跳”像素 ---
     const flicker = Math.floor(Date.now() / 1000) % 2;
     ctx.fillStyle = flicker ? '#111' : '#000';
-    ctx.fillRect(20, 20, 2, 2);
+    ctx.fillRect(10, 10, 2, 2);
 
-    // --- E. 绘制主要时间 (巨大的发光数字) ---
-    ctx.fillStyle = '#ffffff';
-    // 使用等宽字体 Monospace 更有数字感
-    ctx.font = `bold 140px "JetBrains Mono", "Courier New", monospace`; 
+    // --- E. 绘制顶部 HUD (对局进行中) [新增部分] ---
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     
-    // 文字辉光
+    // 顶部文字光晕
     ctx.shadowColor = glowColor;
-    ctx.shadowBlur = 20;
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = primaryColor;
+    // 根据呼吸因子设置透明度，模拟信号灯
+    ctx.globalAlpha = pulse; 
+    
+    ctx.font = `bold 22px "Inter", "system-ui", sans-serif`;
+    // 稍微向上画一点，留出空间给数字
+    ctx.fillText(headerText, width / 2, height / 2 - 90); 
+    
+    ctx.globalAlpha = 1.0; // 恢复不透明
+
+    // --- F. 绘制主要时间 (巨大的发光数字) ---
+    ctx.fillStyle = '#ffffff';
+    // 等宽字体，数字感强
+    ctx.font = `bold 130px "JetBrains Mono", "Courier New", monospace`; 
+    
+    // 强烈的数字辉光
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur = 25;
     
     let timeStr = "";
     if (currentMode === 'overtime') timeStr = `+${formatTime(seconds)}`;
     else timeStr = seconds <= 0 ? "00:00" : formatTime(seconds);
     
-    // 稍微向上偏移一点，给下面文字留空间
-    ctx.fillText(timeStr, width / 2, height / 2 - 20);
+    // 居中绘制
+    ctx.fillText(timeStr, width / 2, height / 2 + 10);
 
-    // --- F. 绘制状态文字 (小字) ---
-    ctx.font = `bold 24px "Inter", sans-serif`;
+    // --- G. 绘制底部状态文字 ---
+    ctx.font = `bold 18px "Inter", sans-serif`;
     ctx.fillStyle = primaryColor;
-    ctx.shadowBlur = 5; // 弱辉光
-    ctx.letterSpacing = "4px"; // 增加字间距，更有科技感
-    ctx.fillText(statusText, width / 2, height / 2 + 80);
+    ctx.shadowBlur = 5; 
+    ctx.letterSpacing = "2px";
+    ctx.fillText(statusText, width / 2, height / 2 + 100);
     
-    // --- G. 绘制底部进度条 ---
-    // 只有非加时模式才画进度条
+    // --- H. 绘制底部进度条 (类似血条/蓝条) ---
     if (currentMode !== 'overtime') {
         ctx.shadowBlur = 0;
         // 进度条槽
         ctx.fillStyle = 'rgba(255,255,255,0.1)';
-        ctx.fillRect(0, height - 20, width, 20);
+        ctx.fillRect(0, height - 12, width, 12);
         // 进度条实体
         ctx.fillStyle = primaryColor;
-        ctx.fillRect(0, height - 20, width * (1 - progress), 20); // 倒计时进度
+        // 增加一点高光效果
+        ctx.shadowColor = primaryColor;
+        ctx.shadowBlur = 10;
+        ctx.fillRect(0, height - 12, width * (1 - progress), 12); 
     }
 
-    // --- H. 视频流保活 ---
+    // --- I. 视频流保活 ---
     if (!video.srcObject) {
        const stream = canvas.captureStream(30);
        video.srcObject = stream;
