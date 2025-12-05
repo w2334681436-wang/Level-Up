@@ -1359,7 +1359,7 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
     localStorage.setItem('ai_unread_messages', count.toString());
   };
 
-// --- 2. 增强版：绘制悬浮窗内容 (世界级 UI 优化版) ---
+// --- 2. 增强版：绘制悬浮窗内容 (修复专注模式绿光氛围) ---
   const updatePiP = (seconds, currentMode) => {
     const canvas = canvasRef.current;
     const video = videoRef.current;
@@ -1372,18 +1372,20 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
     const total = initialTime > 0 ? initialTime : 1;
     const progress = Math.max(0, Math.min(1, (total - seconds) / total));
 
-    // --- 1. 配色系统 (更加高级的电竞色板) ---
+    // --- 1. 配色系统 (核心修改：调整专注模式默认背景) ---
     let theme = {
-        primary: '#34d399', // 默认青色
-        glow: '#059669',
-        bgGradientStart: '#0f172a', // 深蓝灰
-        bgGradientEnd: '#020617',   // 近黑
+        primary: '#34d399', // 亮青绿文字
+        glow: '#059669',    // 边框发光
+        // ✅ 修复：将原来的深蓝灰(#0f172a) 改为 深祖母绿(#064e3b)
+        // 这样中心就会有明显的绿色泛光，而不是藏青色
+        bgGradientStart: '#064e3b', 
+        bgGradientEnd: '#000000',   
         textShadow: 15
     };
 
     let statusText = "DEEP WORK PROTOCOL";
     
-    // 动态点点点 (每秒变化)
+    // 动态点点点
     const dotCount = Math.abs(seconds) % 4;
     const dots = ".".repeat(dotCount).padEnd(3, ' '); 
     let headerText = `⚡ 对局进行中${dots}`;
@@ -1407,24 +1409,23 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
         headerText = `🎮 娱乐放松中${dots}`;
     }
 
-    // --- 2. 绘制背景 (科技深空感) ---
-    const gradient = ctx.createRadialGradient(width / 2, height / 2, 50, width / 2, height / 2, width);
-    gradient.addColorStop(0, theme.bgGradientStart);
-    gradient.addColorStop(1, theme.bgGradientEnd);
+    // --- 2. 绘制背景 (径向渐变制造氛围感) ---
+    // 渐变半径稍微调大一点 (50 -> 150)，让泛光更柔和、范围更大
+    const gradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, width * 0.8);
+    gradient.addColorStop(0, theme.bgGradientStart); // 中心泛光色
+    gradient.addColorStop(1, theme.bgGradientEnd);   // 边缘深黑色
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, width, height);
 
-    // 绘制背景网格 (UI 细节的关键)
+    // 绘制背景网格
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    // 竖线
     for (let x = 0; x <= width; x += 40) { ctx.moveTo(x, 0); ctx.lineTo(x, height); }
-    // 横线
     for (let y = 0; y <= height; y += 40) { ctx.moveTo(0, y); ctx.lineTo(width, y); }
     ctx.stroke();
 
-    // --- 3. 绘制 HUD 战术边角 (增加结构感) ---
+    // --- 3. 绘制 HUD 战术边角 ---
     ctx.strokeStyle = theme.primary;
     ctx.lineWidth = 4;
     ctx.shadowBlur = 10;
@@ -1432,17 +1433,12 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
     const cornerSize = 20;
     
     ctx.beginPath();
-    // 左上
     ctx.moveTo(10, 10 + cornerSize); ctx.lineTo(10, 10); ctx.lineTo(10 + cornerSize, 10);
-    // 右上
     ctx.moveTo(width - 10 - cornerSize, 10); ctx.lineTo(width - 10, 10); ctx.lineTo(width - 10, 10 + cornerSize);
-    // 左下
     ctx.moveTo(10, height - 10 - cornerSize); ctx.lineTo(10, height - 10); ctx.lineTo(10 + cornerSize, height - 10);
-    // 右下
     ctx.moveTo(width - 10 - cornerSize, height - 10); ctx.lineTo(width - 10, height - 10); ctx.lineTo(width - 10, height - 10 - cornerSize);
     ctx.stroke();
 
-    // 外边框 (极细)
     ctx.lineWidth = 1;
     ctx.strokeStyle = theme.primary;
     ctx.globalAlpha = 0.3;
@@ -1454,16 +1450,15 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
     ctx.textBaseline = 'middle';
     ctx.fillStyle = theme.primary;
     
-    // 顶部状态
     ctx.shadowBlur = 5;
     ctx.font = `bold 20px "Inter", sans-serif`;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'; // 白色文字稍微高级点
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'; 
     ctx.fillText(headerText, width / 2, height / 2 - 100); 
 
-    // 核心时间 (巨大化)
+    // 核心时间
     ctx.fillStyle = '#ffffff';
     ctx.font = `bold 150px "JetBrains Mono", monospace`; 
-    ctx.shadowBlur = theme.textShadow; // 强发光
+    ctx.shadowBlur = theme.textShadow; 
     ctx.shadowColor = theme.glow;
     
     let timeStr = "";
@@ -1472,33 +1467,30 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
     
     ctx.fillText(timeStr, width / 2, height / 2 + 10);
 
-    // 底部协议文字
+    // 底部文字
     ctx.shadowBlur = 0; 
     ctx.font = `bold 14px "Inter", sans-serif`;
     ctx.fillStyle = theme.primary;
-    ctx.letterSpacing = "4px"; // 增加字间距，显得更高级
+    ctx.letterSpacing = "4px"; 
     ctx.fillText(statusText, width / 2, height / 2 + 120);
     
-    // --- 5. 绘制底部能量条 (分段式设计) ---
+    // --- 5. 绘制底部能量条 ---
     if (currentMode !== 'overtime') {
         const barHeight = 6;
         const barWidth = width - 80;
         const startX = 40;
         const startY = height - 20;
         
-        // 进度槽背景
         ctx.fillStyle = 'rgba(255,255,255,0.1)';
         ctx.fillRect(startX, startY, barWidth, barHeight);
         
-        // 实体进度
         ctx.fillStyle = theme.primary;
         ctx.shadowBlur = 10;
         const currentW = barWidth * (1 - progress);
         ctx.fillRect(startX, startY, currentW, barHeight);
 
-        // 分割线 (制造能量格的效果)
-        ctx.fillStyle = '#000'; // 用黑色画分割线
-        for(let i=0; i<barWidth; i+=barWidth/20) { // 分成20格
+        ctx.fillStyle = '#000'; 
+        for(let i=0; i<barWidth; i+=barWidth/20) { 
             if(i < currentW) {
                 ctx.fillRect(startX + i, startY, 2, barHeight);
             }
