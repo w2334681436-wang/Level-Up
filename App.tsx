@@ -3087,10 +3087,10 @@ ${todayLogDetails}`;
               </>
             )}
             
-       {/* --- 核心计时器容器 (含 Zen Mode HUD 边框) --- */}
-        <div className={`relative mb-8 md:mb-12 group transition-all duration-700 ease-in-out ${isZen ? 'scale-110 md:scale-[1.5]' : 'scale-90 md:scale-100 landscape:scale-75 landscape:mb-4'}`}>
+  {/* --- 修复后的核心计时器容器 --- */}
+          <div className={`relative mb-8 md:mb-12 group transition-all duration-700 ease-in-out ${isZen ? 'scale-110 md:scale-[1.5]' : 'scale-90 md:scale-100 landscape:scale-75 landscape:mb-4'}`}>
             
-            {/* >>> 新增：禅模式 HUD 战术边框 (1:1 还原悬浮窗) <<< */}
+            {/* 1. 禅模式 HUD 战术边框 */}
             {isZen && (
               <div className="absolute -inset-12 pointer-events-none animate-in fade-in zoom-in duration-700">
                   {/* 左上角 */}
@@ -3102,59 +3102,50 @@ ${todayLogDetails}`;
                   {/* 右下角 */}
                   <div className={`absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 rounded-br-lg transition-colors duration-500 ${getThemeColor().split(' ')[0].replace('text', 'border')}`} style={{ filter: 'drop-shadow(0 0 5px currentColor)' }}></div>
                   
-                  {/* 顶部标签 */}
-                  <div className={`absolute -top-8 left-1/2 -translate-x-1/2 text-[10px] font-mono tracking-[0.3em] font-bold opacity-70 ${getThemeColor().split(' ')[0]}`}>
-                     // {mode === 'focus' ? 'DEEP WORK' : 'SYSTEM IDLE'} //
-                  </div>
-
                   {/* 底部能量条装饰 */}
                   <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 w-32 h-1 bg-gray-800 rounded-full overflow-hidden">
-                     <div className={`h-full ${getThemeColor().split(' ')[0].replace('text', 'bg')} transition-all duration-1000`} style={{ width: `${progress}%` }}></div>
+                      <div className={`h-full ${getThemeColor().split(' ')[0].replace('text', 'bg')} transition-all duration-1000`} style={{ width: `${progress}%` }}></div>
                   </div>
               </div>
             )}
 
+            {/* 2. 普通模式装饰圈 (禅模式隐藏) */}
             {!isZen && (
               <>
-                {/* 非禅模式下的原有装饰圈 */}
                 <div className="absolute inset-0 rounded-full border-4 border-gray-800/50 scale-110"></div>
                 <div className={`absolute inset-0 rounded-full border-4 opacity-20 blur-md transition-all duration-500 ${(getThemeColor() || '').split(' ')[0].replace('text', 'border')}`}></div>
               </>
             )}
             
-            {/* ... 这里保留原来的计时器圆环 div 代码 ... */}
+            {/* 3. 计时器主圆环 */}
             <div className={`
-               rounded-full flex items-center justify-center relative transition-all duration-500 overflow-hidden
-               ${isZen ? 'w-64 h-64 md:w-80 md:h-80 border-0 bg-transparent' : `w-64 h-64 md:w-80 md:h-80 border-8 bg-gray-900 shadow-[0_0_60px_-15px_rgba(0,0,0,0.6)] ${getThemeColor()}`}
+                rounded-full flex items-center justify-center relative transition-all duration-500 overflow-hidden
+                ${isZen ? 'w-64 h-64 md:w-80 md:h-80 border-0 bg-transparent' : `w-64 h-64 md:w-80 md:h-80 border-8 bg-gray-900 shadow-[0_0_60px_-15px_rgba(0,0,0,0.6)] ${getThemeColor()}`}
             `}>
-               {/* 注意：Zen模式下去掉圆环背景色，改为透明，以突显 HUD */}
-               
-               {/* 内部 SVG 和 文字保持不变，直接用原来的代码即可 */}
-               <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none" viewBox="0 0 100 100">
-                 {!isZen && <circle cx="50" cy="50" r="44" fill="none" stroke="#1f2937" strokeWidth="4" />}
-                 <circle 
-                   cx="50" cy="50" r="44" fill="none" 
-                   stroke="currentColor" 
-                   strokeWidth={isZen ? "1.5" : "4"} 
-                   strokeLinecap="round"
-                   strokeDasharray="276"
-                   strokeDashoffset={276 - (276 * progress) / 100}
-                   className={`transition-all duration-1000 ease-linear ${isZen ? 'text-white/40' : ''}`}
-                 />
-               </svg>
+                <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none" viewBox="0 0 100 100">
+                  {!isZen && <circle cx="50" cy="50" r="44" fill="none" stroke="#1f2937" strokeWidth="4" />}
+                  <circle 
+                    cx="50" cy="50" r="44" fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth={isZen ? "1.5" : "4"} 
+                    strokeLinecap="round"
+                    strokeDasharray="276"
+                    strokeDashoffset={276 - (276 * progress) / 100}
+                    className={`transition-all duration-1000 ease-linear ${isZen ? 'text-white/40' : ''}`}
+                  />
+                </svg>
 
-               <div className="flex flex-col items-center z-10 select-none">
-                 <div className={`font-mono font-bold tracking-tighter tabular-nums text-white drop-shadow-2xl transition-all duration-500 ${isZen ? 'text-7xl md:text-8xl' : 'text-5xl md:text-7xl'} ${mode === 'overtime' ? 'text-amber-400 drop-shadow-[0_0_15px_rgba(251,191,36,0.8)]' : ''}`}>
-                   {mode === 'overtime' ? `+${formatTime(timeLeft)}` : formatTime(timeLeft)}
-                 </div>
-                 
-                 {/* 禅模式下隐藏这个小标签，因为已经移到 HUD 顶部了 */}
-                 {!isZen && (
+                <div className="flex flex-col items-center z-10 select-none">
+                  <div className={`font-mono font-bold tracking-tighter tabular-nums text-white drop-shadow-2xl transition-all duration-500 ${isZen ? 'text-7xl md:text-8xl' : 'text-5xl md:text-7xl'} ${mode === 'overtime' ? 'text-amber-400 drop-shadow-[0_0_15px_rgba(251,191,36,0.8)]' : ''}`}>
+                    {mode === 'overtime' ? `+${formatTime(timeLeft)}` : formatTime(timeLeft)}
+                  </div>
+                  
+                  {!isZen && (
                     <div className={`text-sm mt-4 font-bold tracking-widest uppercase transition-all duration-500 ${mode === 'focus' ? 'text-emerald-400' : mode === 'break' ? 'text-blue-400' : mode === 'gaming' ? 'text-purple-400' : 'text-amber-400'}`}>
                     {mode === 'focus' ? 'DEEP WORK' : mode === 'break' ? 'RECHARGE' : mode === 'gaming' ? 'GAME ON' : 'GOLDEN TIME'}
                     </div>
-                 )}
-               </div>
+                  )}
+                </div>
             </div>
           </div>
 
