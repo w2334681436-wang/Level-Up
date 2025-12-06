@@ -3599,7 +3599,7 @@ ${todayLogDetails}`;
         </div>
       )}
 
-    {showSettings && (
+   {showSettings && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-0 md:p-4 animate-in fade-in zoom-in duration-200">
           <div className="bg-[#111116] w-full h-full md:max-w-xl md:h-[85vh] md:rounded-3xl shadow-2xl flex flex-col relative overflow-hidden border-0 md:border border-gray-800 p-4 md:p-8">
             <h2 className="text-xl md:text-2xl font-bold text-white mb-4 md:mb-6 flex items-center gap-2 mt-4 md:mt-0"><Settings className="w-6 h-6 text-cyan-400"/> 系统设置与配置</h2>
