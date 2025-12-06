@@ -2663,6 +2663,29 @@ ${todayLogDetails}`;
     if (mode === 'gaming') return 'text-purple-400 border-purple-500 shadow-purple-900/50';
     if (mode === 'overtime') return 'text-amber-400 border-amber-500 shadow-amber-900/50 drop-shadow-[0_0_15px_rgba(251,191,36,0.5)]'; // 金色传说
   };
+
+  
+  // 1. 获取背景动态光晕颜色
+  const getGlowColor = () => {
+    if (mode === 'focus') return '#059669'; // 专注绿
+    if (mode === 'break') return '#2563eb'; // 休息蓝
+    if (mode === 'gaming') return '#7e22ce'; // 游戏紫
+    if (mode === 'overtime') return '#d97706'; // 加时金
+    return '#059669';
+  };
+
+  // 2. 获取禅模式HUD边框颜色
+  const getBorderColor = () => {
+    if (mode === 'focus') return 'border-emerald-500 shadow-[0_0_10px_#10b981]';
+    if (mode === 'break') return 'border-blue-500 shadow-[0_0_10px_#3b82f6]';
+    if (mode === 'gaming') return 'border-purple-500 shadow-[0_0_10px_#a855f7]';
+    if (mode === 'overtime') return 'border-amber-500 shadow-[0_0_10px_#f59e0b]';
+    return 'border-emerald-500';
+  };
+  // --- [插入结束] ---
+
+  const getThemeColor = () => {
+      // ... 原有代码 ...
   
   const getBgColor = () => {
      if (mode === 'focus') return 'from-emerald-950/90 to-black';
@@ -2674,9 +2697,10 @@ ${todayLogDetails}`;
   if (loading) return <div className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center font-mono animate-pulse">正在载入系统...</div>;
 
  return (
-    <div ref={appContainerRef} className={`h-[100dvh] w-full bg-[#0a0a0a] text-gray-100 font-sans flex flex-col md:flex-row overflow-hidden relative selection:bg-cyan-500/30`}>
+    // 1. 修改最外层背景色为更深邃的黑 (#050505)
+    <div ref={appContainerRef} className="h-[100dvh] w-full bg-[#050505] text-gray-100 font-sans flex flex-col md:flex-row overflow-hidden relative selection:bg-cyan-500/30">
       
-      {/* 1. CSS 动画样式保持不变 */}
+      {/* 2. 样式定义：新增呼吸动画 (animate-breathe) */}
       <style>{`
         @keyframes cyber-flow {
           0% { background-position: 0% 50%; }
@@ -2688,14 +2712,19 @@ ${todayLogDetails}`;
           background-size: 300% 300%;
           animation: cyber-flow 3s ease infinite;
         }
+        /* 新增：缓慢的背景呼吸动画 */
+        @keyframes breathe-glow {
+          0%, 100% { opacity: 0.4; transform: scale(1); }
+          50% { opacity: 0.6; transform: scale(1.1); }
+        }
+        .animate-breathe {
+          animation: breathe-glow 8s ease-in-out infinite;
+        }
       `}</style>
       
       <Toast notifications={notifications} removeNotification={removeNotification} />
 
-     
-   
-      {/* 2. 【关键修改】这里是新的 PiP 画布容器 */}
-      {/* 删掉原来那个 "absolute opacity-0..." 的 div，用下面这个替换 */}
+      {/* 3. 悬浮窗画布 (保持原样) */}
       <div 
         className="fixed pointer-events-none overflow-hidden" 
         style={{ width: '1px', height: '1px', right: '0', bottom: '0', opacity: 0.01, zIndex: -1 }}
@@ -2703,26 +2732,73 @@ ${todayLogDetails}`;
         <canvas ref={canvasRef} width={640} height={360} />
         <video ref={videoRef} muted autoPlay playsInline loop />
       </div>
-      
-      <ConfirmDialog 
-        isOpen={confirmState.isOpen} 
-        title={confirmState.title} 
-        message={confirmState.message} 
-        onConfirm={confirmState.onConfirm} 
-        onCancel={closeConfirm}
-        isDangerous={confirmState.isDangerous}
-        confirmText={confirmState.confirmText}
-      />
+      
+      <ConfirmDialog 
+        isOpen={confirmState.isOpen} 
+        title={confirmState.title} 
+        message={confirmState.message} 
+        onConfirm={confirmState.onConfirm} 
+        onCancel={closeConfirm}
+        isDangerous={confirmState.isDangerous}
+        confirmText={confirmState.confirmText}
+      />
 
-      <HistoryView 
-        history={history}
-        isOpen={showHistory}
-        onClose={() => setShowHistory(false)}
-      />
+      <HistoryView 
+        history={history}
+        isOpen={showHistory}
+        onClose={() => setShowHistory(false)}
+      />
 
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(20,20,40,0.4),transparent_70%)] pointer-events-none"></div>
-      <div className="absolute inset-0 opacity-5 pointer-events-none mix-blend-overlay" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")` }}></div>
+      {/* ==================== 【全新升级：战术背景系统】 ==================== */}
+      
+      {/* 层级 1: 动态呼吸光晕 (环境光) - 随模式变色 */}
+      <div 
+        className="absolute inset-0 z-0 pointer-events-none transition-colors duration-1000 ease-in-out animate-breathe"
+        style={{
+          background: `radial-gradient(circle at 50% 50%, ${getGlowColor()} 0%, transparent 60%)`,
+          opacity: 0.5
+        }}
+      ></div>
 
+      {/* 层级 2: 战术网格 (CSS绘制的高性能网格，取代旧的SVG图片) */}
+      <div className="absolute inset-0 z-0 pointer-events-none opacity-20"
+        style={{
+          backgroundImage: `
+            linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px)
+          `,
+          backgroundSize: '40px 40px',
+          maskImage: 'radial-gradient(ellipse at center, black 40%, transparent 100%)',
+          WebkitMaskImage: 'radial-gradient(ellipse at center, black 40%, transparent 100%)'
+        }}
+      ></div>
+
+      {/* 层级 3: 禅模式 HUD 战术边框 (仅 Zen 模式显示，一比一还原悬浮窗设计) */}
+      {isZen && (
+        <div className="absolute inset-4 md:inset-8 z-0 pointer-events-none border border-white/5 rounded-3xl animate-in fade-in duration-1000 zoom-in-95">
+           {/* 左上角 */}
+           <div className={`absolute -top-[1px] -left-[1px] w-8 h-8 md:w-16 md:h-16 border-t-4 border-l-4 rounded-tl-xl transition-all duration-500 ${getBorderColor()}`}></div>
+           {/* 右上角 */}
+           <div className={`absolute -top-[1px] -right-[1px] w-8 h-8 md:w-16 md:h-16 border-t-4 border-r-4 rounded-tr-xl transition-all duration-500 ${getBorderColor()}`}></div>
+           {/* 左下角 */}
+           <div className={`absolute -bottom-[1px] -left-[1px] w-8 h-8 md:w-16 md:h-16 border-b-4 border-l-4 rounded-bl-xl transition-all duration-500 ${getBorderColor()}`}></div>
+           {/* 右下角 */}
+           <div className={`absolute -bottom-[1px] -right-[1px] w-8 h-8 md:w-16 md:h-16 border-b-4 border-r-4 rounded-br-xl transition-all duration-500 ${getBorderColor()}`}></div>
+           
+           {/* 顶部装饰线与文字 */}
+           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-[2px] bg-white/10"></div>
+           <div className="absolute top-4 left-1/2 -translate-x-1/2 text-[10px] md:text-xs font-mono text-white/50 tracking-[0.5em] uppercase">
+              System Active
+           </div>
+
+           {/* 底部装饰文字 */}
+           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-[10px] md:text-xs font-mono text-white/30 tracking-[0.5em] uppercase">
+              {mode.toUpperCase()} PROTOCOL
+           </div>
+        </div>
+      )}
+
+      {/* ==================== 【背景替换结束】 ==================== */}
             
       {/* --- 左侧边栏 (动画优化：duration-500 + ease-out 更轻快) --- */}
       <div className={`hidden md:flex flex-col bg-[#111116] gap-4 z-20 h-full relative group scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isZen ? 'w-0 min-w-0 p-0 opacity-0 border-none pointer-events-none overflow-hidden' : 'w-96 p-6 border-r border-gray-800 opacity-100 overflow-y-auto'}`}>
