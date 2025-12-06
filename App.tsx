@@ -6,7 +6,7 @@ import { 
   BrainCircuit, Server, Cpu, RefreshCw, List, Send, Smile, Search, 
   ChevronDown, Zap, MessageCircle, User, Info, Bell, PlusCircle, Clock,
   Home,
-  BarChart3,f
+  BarChart3,
   TrendingUp,
   Edit,
   Image,
