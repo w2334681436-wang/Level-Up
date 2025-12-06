@@ -2907,14 +2907,15 @@ ${todayLogDetails}`;
               {todayStats.logs && todayStats.logs.slice().reverse().map((log, i) => (
                 <div key={i} className="bg-[#1a1a20] p-3 rounded border-l-2 border-emerald-500/50 text-xs text-gray-300 relative group hover:bg-[#222228] transition-colors">
                   <div className="flex justify-between text-gray-500 mb-1"><span className="font-mono text-emerald-600">{log.time}</span><span className="text-emerald-500/80">+{log.duration}m XP</span></div>
-                  <div className="truncate">{typeof log.content === 'string' ? log.content : 'Log Entry'}</div>
-                </div>
-              ))}
-            </div>
-        </div>
-      </div>
+               <div className="truncate">{typeof log.content === 'string' ? log.content : 'Log Entry'}</div>
+                </div>
+              ))}
+            </div>
+        </div>
+      </div>
 
-    <MobileNav 
+      {/* --- 移动端底部导航栏 (修复锚点) --- */}
+      <MobileNav 
         mode={mode}
         switchMode={switchMode}
         startAICoach={startAICoach}
@@ -2929,6 +2930,7 @@ ${todayLogDetails}`;
         setShowHistory={setShowHistory}
       />
 
+      {/* --- 主内容区域容器 --- */}
       <div className="flex-1 flex flex-col items-center justify-center p-4 relative transition-all duration-1000 overflow-hidden pb-20 md:pb-4 min-h-[500px] md:min-h-0 overflow-y-auto md:overflow-y-hidden">
         
         {mode === 'overtime' && (
