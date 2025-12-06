@@ -2684,9 +2684,7 @@ ${todayLogDetails}`;
   };
   // --- [插入结束] ---
 
-  const getThemeColor = () => {
-      // ... 原有代码 ...
-  
+
   const getBgColor = () => {
      if (mode === 'focus') return 'from-emerald-950/90 to-black';
      if (mode === 'break') return 'from-blue-950/90 to-black';
