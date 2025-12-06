@@ -2739,7 +2739,7 @@ ${todayLogDetails}`;
       {/* --- 新背景结束 --- */}
             
       {/* --- 左侧边栏 (动画优化：duration-500 + ease-out 更轻快) --- */}
-      <div className={`hidden md:flex flex-col backdrop-blur-xl bg-black/30 gap-4 z-20 h-full relative group scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isZen ? 'w-0 min-w-0 p-0 opacity-0 border-none pointer-events-none overflow-hidden' : 'w-96 p-6 border-r border-white/10 opacity-100 overflow-y-auto'}`}>
+      <div className={`hidden md:flex flex-col bg-[#050505]/90 gap-4 z-20 h-full relative group scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent transition-all duration-500 ease-out will-change-[width,opacity] ${isZen ? 'w-0 min-w-0 p-0 opacity-0 border-none pointer-events-none overflow-hidden' : 'w-96 p-6 border-r border-white/10 opacity-100 overflow-y-auto'}`}>
         <div className="absolute inset-0 bg-gradient-to-br from-blue-900/10 via-purple-900/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
         
         {/* 内容容器：min-w 保持内容宽度，防止挤压 */}
@@ -3019,8 +3019,33 @@ ${todayLogDetails}`;
             </button>
           </div>
 
-          <div className={`hidden md:flex gap-4 mb-8 md:mb-12 bg-gray-900/80 backdrop-blur-md p-2 rounded-2xl border border-gray-700/50 shadow-2xl z-10 transition-all duration-500 ${isZen ? '-translate-y-40 opacity-0 scale-75 absolute pointer-events-none' : 'translate-y-0 opacity-100 scale-100 pointer-events-auto'}`}>
-            <button 
+{/* --- 3.0 悬浮切换胶囊 --- */}
+          <div className={`hidden md:flex items-center gap-1 mb-12 p-1.5 rounded-full border border-white/10 bg-black/40 backdrop-blur-xl shadow-2xl z-20 transition-all duration-500 ${isZen ? '-translate-y-20 opacity-0 pointer-events-none' : 'translate-y-0 opacity-100'}`}>
+            {[
+              { id: 'focus', icon: BookOpen, label: '专注' },
+              { id: 'break', icon: Coffee, label: '休息' },
+              { id: 'gaming', icon: Gamepad2, label: '奖励' }
+            ].map((item) => (
+              <button
+                key={item.id}
+                onClick={() => switchMode(item.id)}
+                className={`
+                  relative px-6 py-2.5 rounded-full text-sm font-bold flex items-center gap-2 transition-all duration-300
+                  ${mode === item.id 
+                    ? 'text-white bg-white/10 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] border border-white/5' 
+                    : 'text-gray-500 hover:text-gray-300 hover:bg-white/5 border border-transparent'}
+                `}
+              >
+                {/* 选中状态下的底部光条 */}
+                {mode === item.id && (
+                  <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-3 h-1 rounded-t-full bg-gradient-to-t from-current to-transparent opacity-80 ${item.id === 'focus' ? 'text-emerald-400' : item.id === 'break' ? 'text-blue-400' : 'text-purple-400'}`}></div>
+                )}
+                <item.icon className={`w-4 h-4 ${mode === item.id ? (item.id === 'focus' ? 'text-emerald-400' : item.id === 'break' ? 'text-blue-400' : 'text-purple-400') : ''}`} />
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </div>
+          <button 
               onClick={() => switchMode('focus')}
               className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all ${mode === 'focus' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'text-gray-500 hover:text-gray-300'}`}
             >
@@ -3050,59 +3075,68 @@ ${todayLogDetails}`;
               </>
             )}
             
-            {/* --- 核心计时器圆环 (修复点：确保 rounded-full 生效) --- */}
-            <div className={`
-               rounded-full flex items-center justify-center relative transition-all duration-500 overflow-hidden
-               ${isZen ? 'w-56 h-56 border-0' : `w-64 h-64 md:w-80 md:h-80 border-8 bg-gray-900 shadow-[0_0_60px_-15px_rgba(0,0,0,0.6)] ${getThemeColor()}`}
-            `}>
-               
-             {/* --- 新版全息圆环 SVG 开始 --- */}
-               <div className={`absolute inset-0 rounded-full blur-[40px] opacity-30 ${getThemeColor().split(' ')[0].replace('text-', 'bg-')}`}></div>
-               
-               {/* 外圈装饰环 (静态) */}
-               <div className="absolute inset-0 rounded-full border border-white/10 scale-110"></div>
+        {/* --- 🚀 2.0 量子反应堆计时器 (Start) --- */}
+            <div className={`relative flex items-center justify-center transition-all duration-700 ${isZen ? 'scale-125 md:scale-150' : 'scale-100'}`}>
+               {/* A. 外部能量场 (光晕) */}
+               <div className={`absolute inset-0 rounded-full blur-[60px] opacity-20 transition-colors duration-700 ${getThemeColor().split(' ')[0].replace('text-', 'bg-')}`}></div>
 
-               {/* 内部旋转虚线环 (动态) */}
-               <svg className="absolute inset-0 w-full h-full animate-[spin_12s_linear_infinite] opacity-40 pointer-events-none" viewBox="0 0 100 100">
-                  <circle cx="50" cy="50" r="48" fill="none" stroke="currentColor" strokeWidth="1" strokeDasharray="4 6" className="text-white/50" />
-               </svg>
-
-               {/* 核心进度环 */}
-               <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none drop-shadow-[0_0_10px_currentColor]" viewBox="0 0 100 100">
-                 {/* 轨道底色 */}
-                 {!isZen && <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="4" />}
-                 {/* 进度条 */}
-                 <circle 
-                   cx="50" cy="50" r="44" fill="none" 
-                   stroke="currentColor" 
-                   strokeWidth={isZen ? "3" : "6"} 
-                   strokeLinecap="round"
-                   strokeDasharray="276"
-                   strokeDashoffset={276 - (276 * progress) / 100}
-                   className={`transition-all duration-1000 ease-linear ${isZen ? 'text-white/20' : ''}`}
-                 />
-               </svg>
-               {/* --- 新版全息圆环 SVG 结束 --- */}
-
-               <div className="flex flex-col items-center z-10 select-none">
-              {/* --- 修改时间显示：支持加时金色 --- */}
-                 <div className={`font-mono font-bold tracking-tighter tabular-nums text-white drop-shadow-2xl transition-all duration-500 ${isZen ? 'text-6xl' : 'text-5xl md:text-7xl'} ${mode === 'overtime' ? 'text-amber-400 drop-shadow-[0_0_15px_rgba(251,191,36,0.8)]' : ''}`}>
-                   {mode === 'overtime' ? `+${formatTime(timeLeft)}` : formatTime(timeLeft)}
-                 </div>
+               {/* B. 机械结构 - 静态外壳 */}
+               <div className="w-72 h-72 md:w-96 md:h-96 rounded-full border border-white/5 bg-[#050505]/40 backdrop-blur-sm flex items-center justify-center relative shadow-2xl">
                  
-                 {/* --- 修改文字标签 --- */}
-                 <div className={`text-sm mt-4 font-bold tracking-widest uppercase transition-all duration-500 ${mode === 'focus' ? 'text-emerald-400' : mode === 'break' ? 'text-blue-400' : mode === 'gaming' ? 'text-purple-400' : 'text-amber-400'} ${isZen ? 'opacity-50' : 'opacity-100'}`}>
-                   {mode === 'focus' ? 'DEEP WORK' : mode === 'break' ? 'RECHARGE' : mode === 'gaming' ? 'GAME ON' : 'GOLDEN TIME'}
+                 {/* C. 机械结构 - 内部旋转刻度 (装饰) */}
+                 <div className="absolute inset-4 rounded-full border border-white/5 border-dashed animate-[spin_60s_linear_infinite] opacity-30"></div>
+                 <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-white/10 border-b-white/10 rotate-45"></div>
+
+                 {/* D. 核心 SVG 进度条 */}
+                 <svg className="absolute inset-0 w-full h-full -rotate-90 drop-shadow-[0_0_15px_currentColor]" viewBox="0 0 100 100">
+                    <defs>
+                      <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="currentColor" stopOpacity="0.3" />
+                        <stop offset="100%" stopColor="currentColor" stopOpacity="1" />
+                      </linearGradient>
+                    </defs>
+                    
+                    {/* 轨道底色 */}
+                    <circle cx="50" cy="50" r="42" fill="none" stroke="#222" strokeWidth="2" />
+                    
+                    {/* 进度条 (带圆角) */}
+                    <circle 
+                      cx="50" cy="50" r="42" fill="none" 
+                      stroke="url(#progressGradient)"
+                      strokeWidth="3" 
+                      strokeLinecap="round"
+                      strokeDasharray="264"
+                      strokeDashoffset={264 - (264 * progress) / 100}
+                      className={`transition-all duration-1000 ease-out ${mode === 'focus' ? 'text-emerald-400' : mode === 'break' ? 'text-blue-400' : mode === 'gaming' ? 'text-purple-400' : 'text-amber-400'}`}
+                    />
+                 </svg>
+
+                 {/* E. 内部数据面板 */}
+                 <div className="flex flex-col items-center z-10 relative">
+                   {/* 顶部小标题 */}
+                   <div className="text-[10px] text-gray-500 tracking-[0.3em] font-bold mb-2 uppercase animate-pulse">
+                      {mode === 'focus' ? 'SYSTEM ACTIVE' : 'STANDBY'}
+                   </div>
+
+                   {/* 时间数字 (使用 JetBrains Mono, 加大加粗) */}
+                   <div className={`font-mono font-bold tracking-tighter text-6xl md:text-8xl transition-all duration-300 ${mode === 'overtime' ? 'text-amber-400 drop-shadow-[0_0_10px_rgba(251,191,36,0.8)]' : 'text-white drop-shadow-xl'}`}>
+                      {mode === 'overtime' ? `+${formatTime(timeLeft)}` : formatTime(timeLeft)}
+                   </div>
+
+                   {/* 底部模式标签 */}
+                   <div className={`mt-4 px-3 py-1 rounded-full border bg-black/50 backdrop-blur-md text-xs font-bold tracking-widest flex items-center gap-2 ${getThemeColor().replace('shadow-', '').split(' ')[0].replace('text-', 'border-').replace('text-', 'text-')}`}>
+                      <div className={`w-1.5 h-1.5 rounded-full animate-ping ${getThemeColor().split(' ')[0].replace('text-', 'bg-')}`}></div>
+                      {mode === 'focus' ? 'DEEP WORK' : mode === 'break' ? 'RECHARGE' : mode === 'gaming' ? 'GAME MODE' : 'OVERDRIVE'}
+                   </div>
                  </div>
-                 
-                 {!isZen && mode === 'focus' && isActive && (
-                    <div className="text-[10px] text-gray-500 mt-2 bg-gray-800 px-2 py-1 rounded-full animate-pulse border border-gray-700">
-                      预计收益: +{Math.floor(initialTime / 60 / 10)}m 券
-                    </div>
-                 )}
+
+                 {/* F. 扫描线装饰 (Scanline) */}
+                 <div className="absolute inset-0 rounded-full pointer-events-none opacity-10" 
+                      style={{ background: 'linear-gradient(transparent 50%, rgba(255,255,255,0.1) 50%)', backgroundSize: '100% 4px' }}>
+                 </div>
                </div>
             </div>
-          </div>
+            {/* --- 2.0 量子反应堆计时器 (End) --- */}
 
           {/* --- 新增：时间调节面板 (支持自定义预设) --- */}
           {!isActive && !isZen && mode !== 'overtime' && (
