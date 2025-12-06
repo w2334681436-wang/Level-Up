@@ -2765,44 +2765,81 @@ ${todayLogDetails}`;
         }}
       ></div>
 
-     {/* 禅模式极简 HUD (复刻悬浮窗同款 UI) */}
+ {/* ==================== 禅模式：SVG 战术 HUD (完美复刻悬浮窗) ==================== */}
       {isZen && (
-        <div className="absolute inset-0 z-40 flex items-center justify-center p-4 md:p-10 animate-in fade-in duration-700">
-           {/* 1. 全屏背景光晕 (与悬浮窗一致的径向渐变) */}
-           <div className={`absolute inset-0 bg-[radial-gradient(circle_at_center,var(--tw-gradient-from)_0%,black_70%)] opacity-40 ${getBgColor()}`}></div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black">
+           {/* 1. 动态背景层：微光呼吸 */}
+           <div className={`absolute inset-0 opacity-20 animate-pulse ${
+               mode === 'focus' ? 'bg-emerald-900' :
+               mode === 'break' ? 'bg-blue-900' :
+               mode === 'gaming' ? 'bg-purple-900' :
+               'bg-amber-900'
+           }`}></div>
            
-           {/* 2. 战术边框容器 (Canvas 同款布局) */}
-           <div className={`relative w-full max-w-5xl h-[80vh] border-2 flex flex-col items-center justify-between py-20 transition-all duration-1000 ${
-               mode === 'focus' ? 'border-emerald-500/30 shadow-[0_0_50px_rgba(16,185,129,0.1)]' :
-               mode === 'break' ? 'border-blue-500/30 shadow-[0_0_50px_rgba(59,130,246,0.1)]' :
-               mode === 'gaming' ? 'border-purple-500/30 shadow-[0_0_50px_rgba(168,85,247,0.1)]' :
-               'border-amber-500/30 shadow-[0_0_50px_rgba(245,158,11,0.1)]'
-           }`}>
+           {/* 2. 核心 SVG 战术层 (替换原本丑陋的 div 边框) */}
+           {/* 这里用 SVG 画线，能做到和 Canvas 一模一样的锐利质感 */}
+           <svg className="absolute inset-0 w-full h-full p-4 md:p-10 pointer-events-none" style={{ filter: 'drop-shadow(0 0 10px rgba(currentColor, 0.5))' }}>
+              <defs>
+                {/* 定义渐变，让线条有科技感 */}
+                <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="currentColor" stopOpacity="0.1" />
+                  <stop offset="50%" stopColor="currentColor" stopOpacity="0.8" />
+                  <stop offset="100%" stopColor="currentColor" stopOpacity="0.1" />
+                </linearGradient>
+              </defs>
               
-              {/* 顶部状态文字 */}
-              <div className={`text-2xl md:text-3xl font-bold tracking-[0.2em] uppercase flex items-center gap-4 animate-pulse ${
+              <g className={`transition-colors duration-1000 ${
+                  mode === 'focus' ? 'text-emerald-500' :
+                  mode === 'break' ? 'text-blue-500' :
+                  mode === 'gaming' ? 'text-purple-500' :
+                  'text-amber-500'
+              }`}>
+                  {/* --- 战术边角 (L-Brackets) --- */}
+                  {/* 左上 */}
+                  <path d="M40,20 L20,20 L20,40" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="square" />
+                  {/* 右上 */}
+                  <path d="Mcalc(100% - 40px),20 Lcalc(100% - 20px),20 Lcalc(100% - 20px),40" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="square" />
+                  {/* 左下 */}
+                  <path d="M20,calc(100% - 40px) L20,calc(100% - 20px) L40,calc(100% - 20px)" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="square" />
+                  {/* 右下 */}
+                  <path d="Mcalc(100% - 20px),calc(100% - 40px) Lcalc(100% - 20px),calc(100% - 20px) Lcalc(100% - 40px),calc(100% - 20px)" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="square" />
+
+                  {/* --- 细连接线 (Thin Borders) --- */}
+                  {/* 用 rect 模拟细边框，透明度降低，复刻 Canvas 的 globalAlpha=0.3 */}
+                  <rect x="20" y="20" width="calc(100% - 40px)" height="calc(100% - 40px)" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.3" />
+              </g>
+           </svg>
+
+           {/* 3. 内容容器 */}
+           <div className="relative z-10 flex flex-col items-center justify-between h-full py-20 md:py-32 w-full max-w-5xl">
+              
+              {/* 顶部：状态指示 */}
+              <div className={`flex items-center gap-4 text-xl md:text-2xl font-bold tracking-[0.3em] uppercase animate-in slide-in-from-top-10 duration-1000 ${
                   mode === 'focus' ? 'text-emerald-400' :
                   mode === 'break' ? 'text-blue-400' :
                   mode === 'gaming' ? 'text-purple-400' :
                   'text-amber-400'
               }`}>
-                 <span className="w-3 h-3 rounded-full bg-current shadow-[0_0_10px_currentColor]"></span>
-                 {mode === 'focus' ? (timeLeft <= 0 ? "⚠ 专注目标达成" : "⚡ 对局进行中...") : 
-                  mode === 'overtime' ? "🏆 巅峰加时赛" :
-                  mode === 'break' ? "💤 泉水回血中..." : "🎮 娱乐放松中..."}
-                 <span className="w-3 h-3 rounded-full bg-current shadow-[0_0_10px_currentColor]"></span>
+                 {/* 装饰点 */}
+                 <div className="w-2 h-2 bg-current rounded-full animate-ping"></div>
+                 <span>
+                    {mode === 'focus' ? (timeLeft <= 0 ? "⚠️ 目标达成" : "⚡ 对局进行中...") : 
+                     mode === 'overtime' ? "🏆 巅峰加时赛" :
+                     mode === 'break' ? "💤 泉水回血" : "🎮 娱乐模式"}
+                 </span>
+                 <div className="w-2 h-2 bg-current rounded-full animate-ping"></div>
               </div>
 
-              {/* 核心时间显示 (超大字体，无圆环) */}
-              <div className={`font-mono font-bold text-[12rem] md:text-[18rem] leading-none tracking-tighter drop-shadow-2xl tabular-nums select-none ${
-                  mode === 'overtime' ? 'text-amber-400 drop-shadow-[0_0_30px_rgba(245,158,11,0.6)]' : 'text-white'
+              {/* 中部：核心时间 (超大数字) */}
+              <div className={`font-mono font-bold text-[18vw] md:text-[12rem] leading-none tracking-tighter tabular-nums drop-shadow-2xl select-none scale-y-110 transition-all duration-300 ${
+                  mode === 'overtime' ? 'text-amber-400 drop-shadow-[0_0_50px_rgba(245,158,11,0.5)]' : 'text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]'
               }`}>
                  {mode === 'overtime' ? `+${formatTime(timeLeft)}` : formatTime(timeLeft)}
               </div>
 
-              {/* 底部协议文字 & 进度条 */}
-              <div className="w-full max-w-3xl flex flex-col items-center gap-8">
-                  <div className={`text-xl md:text-2xl font-bold tracking-[0.5em] uppercase opacity-80 ${
+              {/* 底部：进度条与协议文案 */}
+              <div className="w-full px-10 md:px-20 flex flex-col gap-6">
+                  <div className={`text-center font-bold tracking-[0.5em] text-sm md:text-lg opacity-60 uppercase ${
                       mode === 'focus' ? 'text-emerald-500' :
                       mode === 'break' ? 'text-blue-500' :
                       mode === 'gaming' ? 'text-purple-500' :
@@ -2810,40 +2847,38 @@ ${todayLogDetails}`;
                   }`}>
                       {mode === 'focus' ? "DEEP WORK PROTOCOL" : 
                        mode === 'overtime' ? `PEAK SCORE: ${rankState.peakScore}` : 
-                       mode === 'break' ? "RECOVERING" : "ENTERTAINMENT"}
+                       mode === 'break' ? "SYSTEM RECHARGE" : "ENTERTAINMENT MODE"}
                   </div>
 
-                  {/* 悬浮窗同款进度条 */}
+                  {/* 进度条 (复刻 Canvas 的绘制风格) */}
                   {mode !== 'overtime' && (
-                    <div className="w-full h-2 bg-gray-800/50 rounded-full overflow-hidden relative border border-white/5">
-                        <div className={`h-full shadow-[0_0_20px_currentColor] transition-all duration-1000 ease-linear ${
+                    <div className="w-full h-1.5 bg-gray-800 relative overflow-hidden">
+                        {/* 进度填充 */}
+                        <div className={`absolute top-0 left-0 h-full transition-all duration-1000 ease-linear shadow-[0_0_20px_currentColor] ${
                             mode === 'focus' ? 'bg-emerald-500' :
                             mode === 'break' ? 'bg-blue-500' :
                             mode === 'gaming' ? 'bg-purple-500' :
                             'bg-amber-500'
                         }`} style={{ width: `${progress}%` }}></div>
+                        
+                        {/* 装饰刻度 (模拟 Canvas 里的 for循环 rect) */}
+                        <div className="absolute inset-0 w-full h-full flex justify-between px-1">
+                           {[...Array(20)].map((_, i) => (
+                             <div key={i} className="w-px h-full bg-black/50"></div>
+                           ))}
+                        </div>
                     </div>
                   )}
               </div>
-
-              {/* --- 战术 L型 边角 (Canvas 画法复刻) --- */}
-              {/* 左上 */}
-              <div className={`absolute top-0 left-0 w-8 h-8 md:w-16 md:h-16 border-t-4 border-l-4 transition-colors duration-500 ${
-                  mode === 'focus' ? 'border-emerald-500' : mode === 'break' ? 'border-blue-500' : mode === 'gaming' ? 'border-purple-500' : 'border-amber-500'
-              }`}></div>
-              {/* 右上 */}
-              <div className={`absolute top-0 right-0 w-8 h-8 md:w-16 md:h-16 border-t-4 border-r-4 transition-colors duration-500 ${
-                  mode === 'focus' ? 'border-emerald-500' : mode === 'break' ? 'border-blue-500' : mode === 'gaming' ? 'border-purple-500' : 'border-amber-500'
-              }`}></div>
-              {/* 左下 */}
-              <div className={`absolute bottom-0 left-0 w-8 h-8 md:w-16 md:h-16 border-b-4 border-l-4 transition-colors duration-500 ${
-                  mode === 'focus' ? 'border-emerald-500' : mode === 'break' ? 'border-blue-500' : mode === 'gaming' ? 'border-purple-500' : 'border-amber-500'
-              }`}></div>
-              {/* 右下 */}
-              <div className={`absolute bottom-0 right-0 w-8 h-8 md:w-16 md:h-16 border-b-4 border-r-4 transition-colors duration-500 ${
-                  mode === 'focus' ? 'border-emerald-500' : mode === 'break' ? 'border-blue-500' : mode === 'gaming' ? 'border-purple-500' : 'border-amber-500'
-              }`}></div>
            </div>
+
+           {/* 退出按钮 (仅 Hover 显示) */}
+           <button 
+             onClick={() => setIsZen(false)}
+             className="absolute top-8 right-8 text-white/20 hover:text-white transition-colors z-50 p-2"
+           >
+             <Minimize2 className="w-8 h-8" />
+           </button>
         </div>
       )}
           
