@@ -2801,8 +2801,8 @@ ${todayLogDetails}`;
       {/* ==================== 【背景替换结束】 ==================== */}
             
       {/* --- 左侧边栏 (动画优化：duration-500 + ease-out 更轻快) --- */}
-      <div className={`hidden md:flex flex-col bg-[#111116] gap-4 z-20 h-full relative group scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isZen ? 'w-0 min-w-0 p-0 opacity-0 border-none pointer-events-none overflow-hidden' : 'w-96 p-6 border-r border-gray-800 opacity-100 overflow-y-auto'}`}>
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/10 via-purple-900/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
+<div className={`hidden md:flex flex-col bg-[#111116]/80 backdrop-blur-md gap-4 z-20 h-full relative group
+<div className="absolute inset-0 bg-gradient-to-br from-blue-900/10 via-purple-900/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
         
         {/* 内容容器：min-w 保持内容宽度，防止挤压 */}
         <div className="min-w-[340px] flex flex-col gap-4">
@@ -2932,8 +2932,7 @@ ${todayLogDetails}`;
         setShowHistory={setShowHistory}
       />
 
-      <div className={`flex-1 flex flex-col items-center justify-center p-4 relative bg-gradient-to-br ${getBgColor()} transition-colors duration-1000 overflow-hidden pb-20 md:pb-4 min-h-[500px] md:min-h-0 overflow-y-auto md:overflow-y-hidden`}>
-
+className={`flex-1 flex flex-col items-center justify-center p-4 relative transition-all duration-1000 overflow-hidden pb-20 md:pb-4 min-h-[500px] md:min-h-0 overflow-y-auto md:overflow-y-hidden`}
 {mode === 'overtime' && (
        <div className="absolute inset-0 z-0 pointer-events-none">
            <GoldParticles />
