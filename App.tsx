@@ -2747,56 +2747,52 @@ ${todayLogDetails}`;
         onClose={() => setShowHistory(false)}
       />
 
-      {/* ==================== 【全新升级：战术背景系统】 ==================== */}
-      
-      {/* 层级 1: 动态呼吸光晕 (环境光) - 随模式变色 */}
-      <div 
-        className="absolute inset-0 z-0 pointer-events-none transition-colors duration-1000 ease-in-out animate-breathe"
-        style={{
-          background: `radial-gradient(circle at 50% 50%, ${getGlowColor()} 0%, transparent 60%)`,
-          opacity: 0.5
-        }}
-      ></div>
+  {/* ==================== 【升级点 3：全局环境背景】 ==================== */}
+      {/* 调整：全屏微光底色，防止四周死黑 */}
+      <div className="absolute inset-0 z-0 pointer-events-none bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.03)_0%,rgba(0,0,0,0)_100%)]"></div>
 
-      {/* 层级 2: 战术网格 (CSS绘制的高性能网格，取代旧的SVG图片) */}
+      {/* 战术网格 (全局背景) */}
       <div className="absolute inset-0 z-0 pointer-events-none opacity-20"
         style={{
           backgroundImage: `
-            linear-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px)
+            linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px)
           `,
-          backgroundSize: '40px 40px',
-          maskImage: 'radial-gradient(ellipse at center, black 40%, transparent 100%)',
-          WebkitMaskImage: 'radial-gradient(ellipse at center, black 40%, transparent 100%)'
+          backgroundSize: '60px 60px',
+          // 修改 mask：扩大可见范围到 130%，彻底消除四周黑边
+          maskImage: 'radial-gradient(circle at center, black 40%, transparent 130%)',
+          WebkitMaskImage: 'radial-gradient(circle at center, black 40%, transparent 130%)'
         }}
       ></div>
 
-      {/* 层级 3: 禅模式 HUD 战术边框 (仅 Zen 模式显示，一比一还原悬浮窗设计) */}
+      {/* ==================== 【升级点 2：禅模式极简 HUD】 ==================== */}
+      {/* 重新设计：使用细线条 + 荧光阴影，不再是粗方块 */}
       {isZen && (
-        <div className="absolute inset-4 md:inset-8 z-0 pointer-events-none border border-white/5 rounded-3xl animate-in fade-in duration-1000 zoom-in-95">
-           {/* 左上角 */}
-           <div className={`absolute -top-[1px] -left-[1px] w-8 h-8 md:w-16 md:h-16 border-t-4 border-l-4 rounded-tl-xl transition-all duration-500 ${getBorderColor()}`}></div>
-           {/* 右上角 */}
-           <div className={`absolute -top-[1px] -right-[1px] w-8 h-8 md:w-16 md:h-16 border-t-4 border-r-4 rounded-tr-xl transition-all duration-500 ${getBorderColor()}`}></div>
-           {/* 左下角 */}
-           <div className={`absolute -bottom-[1px] -left-[1px] w-8 h-8 md:w-16 md:h-16 border-b-4 border-l-4 rounded-bl-xl transition-all duration-500 ${getBorderColor()}`}></div>
-           {/* 右下角 */}
-           <div className={`absolute -bottom-[1px] -right-[1px] w-8 h-8 md:w-16 md:h-16 border-b-4 border-r-4 rounded-br-xl transition-all duration-500 ${getBorderColor()}`}></div>
-           
-           {/* 顶部装饰线与文字 */}
-           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-[2px] bg-white/10"></div>
-           <div className="absolute top-4 left-1/2 -translate-x-1/2 text-[10px] md:text-xs font-mono text-white/50 tracking-[0.5em] uppercase">
-              System Active
+        <div className="absolute inset-0 z-0 pointer-events-none animate-in fade-in duration-1000">
+           <div className="absolute inset-6 md:inset-10 flex flex-col justify-between">
+              <div className="flex justify-between">
+                {/* 左上角 */}
+                <div className={`w-8 h-8 md:w-16 md:h-16 border-t-2 border-l-2 rounded-tl-lg transition-all duration-500 shadow-[0_0_10px_currentColor] ${getBorderColor().split(' ')[0]}`}></div>
+                {/* 右上角 */}
+                <div className={`w-8 h-8 md:w-16 md:h-16 border-t-2 border-r-2 rounded-tr-lg transition-all duration-500 shadow-[0_0_10px_currentColor] ${getBorderColor().split(' ')[0]}`}></div>
+              </div>
+              <div className="flex justify-between">
+                {/* 左下角 */}
+                <div className={`w-8 h-8 md:w-16 md:h-16 border-b-2 border-l-2 rounded-bl-lg transition-all duration-500 shadow-[0_0_10px_currentColor] ${getBorderColor().split(' ')[0]}`}></div>
+                {/* 右下角 */}
+                <div className={`w-8 h-8 md:w-16 md:h-16 border-b-2 border-r-2 rounded-br-lg transition-all duration-500 shadow-[0_0_10px_currentColor] ${getBorderColor().split(' ')[0]}`}></div>
+              </div>
            </div>
-
-           {/* 底部装饰文字 */}
-           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-[10px] md:text-xs font-mono text-white/30 tracking-[0.5em] uppercase">
-              {mode.toUpperCase()} PROTOCOL
+           
+           {/* HUD 装饰文字 */}
+           <div className="absolute top-8 left-1/2 -translate-x-1/2 text-[10px] font-mono text-white/40 tracking-[0.8em] uppercase">System Active</div>
+           <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-[10px] font-mono text-white/30 tracking-[0.8em] uppercase flex items-center gap-4">
+              <span className="inline-block w-2 h-2 rounded-full bg-current animate-pulse"></span>
+              {mode} protocol
+              <span className="inline-block w-2 h-2 rounded-full bg-current animate-pulse"></span>
            </div>
         </div>
       )}
-
-      {/* ==================== 【背景替换结束】 ==================== */}
             
 {/* --- 左侧边栏 (动画优化：duration-500 + ease-out 更轻快) --- */}
       <div className={`hidden md:flex flex-col bg-[#111116]/80 backdrop-blur-md gap-4 z-20 h-full relative group scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${isZen ? 'w-0 min-w-0 p-0 opacity-0 border-none pointer-events-none overflow-hidden' : 'w-96 p-6 border-r border-gray-800 opacity-100 overflow-y-auto'}`}>
@@ -3100,11 +3096,23 @@ ${todayLogDetails}`;
             </button>
           </div>
 
-        <div className={`relative mb-8 md:mb-12 group transition-all duration-700 ease-in-out ${isZen ? 'scale-125 md:scale-[2.5]' : 'scale-90 md:scale-100 landscape:scale-75 landscape:mb-4'}`}>
+       <div className={`relative mb-8 md:mb-12 group transition-all duration-700 ease-in-out ${isZen ? 'scale-125 md:scale-[2.5]' : 'scale-90 md:scale-100 landscape:scale-75 landscape:mb-4'}`}>
+            
+            {/* 🌟 核心修改：光晕现在直接绑定在时钟容器内，永远跟随轮盘 */}
+             <div className="absolute inset-0 rounded-full clock-glow pointer-events-none"
+                  style={{
+                    background: `radial-gradient(circle, ${getGlowColor()} 0%, transparent 70%)`,
+                    transform: 'scale(1.5)',  // 稍微放大，让光晕溢出
+                    zIndex: 0, // 确保在最底层
+                    filter: 'blur(40px)' // 增加模糊，让光更柔和
+                  }}
+             ></div>
+
             {!isZen && (
               <>
                 {/* 外层装饰圈 1 */}
-                <div className="absolute inset-0 rounded-full border-4 border-gray-800/50 scale-110"></div>
+                <div className="absolute inset-0 rounded-full border-4 border-gray-800/50 scale-110 z-0"></div>
+                
                 {/* 外层装饰圈 2 (发光模糊) */}
                 <div className={`absolute inset-0 rounded-full border-4 opacity-20 blur-md transition-all duration-500 ${(getThemeColor() || '').split(' ')[0].replace('text', 'border')}`}></div>
               </>
