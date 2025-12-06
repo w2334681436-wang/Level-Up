@@ -3026,36 +3026,45 @@ ${todayLogDetails}`;
             </button>
           </div>
 
-      <div className={`relative mb-8 md:mb-12 group transition-all duration-700 ease-in-out ${isZen ? 'scale-125 md:scale-[2.5]' : 'scale-90 md:scale-100 landscape:scale-75 landscape:mb-4'}`}>
+    {/* --- 极致流畅优化版容器 --- */}
+        <div className={`
+            relative mb-8 md:mb-12 group 
+            transition-all duration-700 ease-[cubic-bezier(0.34,1.56,0.64,1)] 
+            will-change-transform
+            ${isZen ? 'scale-125 md:scale-[2.5]' : 'scale-90 md:scale-100 landscape:scale-75 landscape:mb-4'}
+        `}>
             
-            {/* --- 新增：呼吸泛光光效 (Backdrop Glow) --- */}
+            {/* 1. 呼吸泛光层 (Backdrop Glow) */}
             <div className={`
               absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full -z-10 
               transition-all duration-1000 ease-in-out animate-[pulse_4s_ease-in-out_infinite] mix-blend-screen pointer-events-none
               ${mode === 'focus' ? 'bg-emerald-600/30' : mode === 'break' ? 'bg-blue-600/30' : mode === 'gaming' ? 'bg-purple-600/30' : 'bg-amber-600/40'}
               ${isZen 
-                ? 'w-[120%] h-[120%] blur-[40px] opacity-40'  /* 禅模式：范围收敛，防止全屏过曝 */
-                : 'w-[220%] h-[220%] blur-[80px] md:blur-[100px] opacity-50' /* 主页模式：大范围氛围光，覆盖半屏 */
+                ? 'w-[120%] h-[120%] blur-[40px] opacity-40' 
+                : 'w-[220%] h-[220%] blur-[80px] md:blur-[100px] opacity-50'
               }
             `}></div>
 
-            {!isZen && (
-              <>
-                {/* 外层装饰圈 1 */}
+            {/* 2. 外层装饰圈 (使用 opacity 替代条件渲染，防止闪烁) */}
+            <div className={`absolute inset-0 transition-opacity duration-500 ease-in-out ${isZen ? 'opacity-0' : 'opacity-100'}`}>
+                {/* 实线圈 */}
                 <div className="absolute inset-0 rounded-full border-4 border-gray-800/50 scale-110"></div>
-                {/* 外层装饰圈 2 (发光模糊 - 仅保留作为边缘高光) */}
+                {/* 模糊光圈 */}
                 <div className={`absolute inset-0 rounded-full border-4 opacity-40 blur-md transition-all duration-500 ${(getThemeColor() || '').split(' ')[0].replace('text', 'border')}`}></div>
-              </>
-            )}
+            </div>
             
-            {/* --- 核心计时器圆环 --- */}
+            {/* 3. 核心计时器圆环 */}
             <div className={`
                rounded-full flex items-center justify-center relative transition-all duration-500 overflow-hidden z-10
                ${isZen ? 'w-56 h-56 border-0' : `w-64 h-64 md:w-80 md:h-80 border-8 bg-gray-900 shadow-[0_0_60px_-15px_rgba(0,0,0,0.8)] ${getThemeColor()}`}
             `}>
                
+               {/* 进度条 SVG */}
                <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none" viewBox="0 0 100 100">
-                 {!isZen && <circle cx="50" cy="50" r="44" fill="none" stroke="#1f2937" strokeWidth="4" />}
+                 {/* 背景灰圈 (淡出处理) */}
+                 <circle cx="50" cy="50" r="44" fill="none" stroke="#1f2937" strokeWidth="4" className={`transition-opacity duration-300 ${isZen ? 'opacity-0' : 'opacity-100'}`} />
+                 
+                 {/* 进度亮圈 */}
                  <circle 
                    cx="50" cy="50" r="44" fill="none" 
                    stroke="currentColor" 
@@ -3067,25 +3076,27 @@ ${todayLogDetails}`;
                  />
                </svg>
 
+               {/* 文字内容 */}
                <div className="flex flex-col items-center z-10 select-none">
-              {/* --- 修改时间显示：支持加时金色 --- */}
+                 {/* 时间显示 */}
                  <div className={`font-mono font-bold tracking-tighter tabular-nums text-white drop-shadow-2xl transition-all duration-500 ${isZen ? 'text-6xl' : 'text-5xl md:text-7xl'} ${mode === 'overtime' ? 'text-amber-400 drop-shadow-[0_0_15px_rgba(251,191,36,0.8)]' : ''}`}>
                    {mode === 'overtime' ? `+${formatTime(timeLeft)}` : formatTime(timeLeft)}
                  </div>
                  
-                 {/* --- 修改文字标签 --- */}
+                 {/* 模式文字 */}
                  <div className={`text-sm mt-4 font-bold tracking-widest uppercase transition-all duration-500 ${mode === 'focus' ? 'text-emerald-400' : mode === 'break' ? 'text-blue-400' : mode === 'gaming' ? 'text-purple-400' : 'text-amber-400'} ${isZen ? 'opacity-50' : 'opacity-100'}`}>
                    {mode === 'focus' ? 'DEEP WORK' : mode === 'break' ? 'RECHARGE' : mode === 'gaming' ? 'GAME ON' : 'GOLDEN TIME'}
                  </div>
                  
-                 {!isZen && mode === 'focus' && isActive && (
+                 {/* 底部收益提示 (高度+透明度过渡，防止布局跳动) */}
+                 <div className={`transition-all duration-500 ease-out overflow-hidden ${!isZen && mode === 'focus' && isActive ? 'opacity-100 max-h-10 scale-100' : 'opacity-0 max-h-0 scale-95'}`}>
                     <div className="text-[10px] text-gray-500 mt-2 bg-gray-800 px-2 py-1 rounded-full animate-pulse border border-gray-700">
                       预计收益: +{Math.floor(initialTime / 60 / 10)}m 券
                     </div>
-                 )}
+                 </div>
                </div>
             </div>
-          </div>
+        </div>
 
           {/* --- 新增：时间调节面板 (支持自定义预设) --- */}
           {!isActive && !isZen && mode !== 'overtime' && (
