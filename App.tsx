@@ -2674,7 +2674,6 @@ ${todayLogDetails}`;
   if (loading) return <div className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center font-mono animate-pulse">正在载入系统...</div>;
 
  return (
-    <div ref={appContainerRef} className={`h-[100dvh] w-full bg-[#0a0a0a] text-gray-100 font-sans flex flex-col md:flex-row overflow-hidden relative selection:bg-cyan-500/30`}>
       
       {/* 1. CSS 动画样式保持不变 */}
       <style>{`
