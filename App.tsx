@@ -1061,16 +1061,16 @@ export default function LevelUpApp() {
     unreadAIMessagesRef.current = unreadAIMessages;
   }, [unreadAIMessages]);
 
-  // ... (后面的代码不需要动：sendNotification, Toast 等组件逻辑，以及后续的 functions) ...
 
-  // --- 通知系统逻辑 ---
-  const addNotification = (message, type = 'info') => {
-    const id = Date.now();
-    setNotifications(prev => [...prev, { id, message, type }]);
-    setTimeout(() => {
-      setNotifications(prev => prev.filter(n => n.id !== id));
-    }, 4000);
-  };
+const addNotification = (message, type = 'info') => {
+    // 修复：使用 Date.now() + Math.random() 确保 ID 唯一
+    // 防止短时间内连续触发通知导致 Key 冲突，从而造成通知无法关闭
+    const id = Date.now() + Math.random(); 
+    setNotifications(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 4000);
+  };
 
   const removeNotification = (id) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
