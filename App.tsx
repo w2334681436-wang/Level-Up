@@ -1724,25 +1724,6 @@ const updateStudyStats = (seconds, log) => {
     // localStorage.setItem(`last_${mode}_duration`, minutes); 
   };
   
-
-    
-    if (!isActive) {
-      requestNotificationPermission()
-      saveTimerState(true, timeLeft, initialTime, mode);
-      setIsActive(true);
-      if (mode === 'focus') {
-        fetchZenQuote(); // <--- 新增：每次开始专注，就去求一条签！
-        setIsZen(true);
-        if (appContainerRef.current && document.fullscreenEnabled) {
-             appContainerRef.current.requestFullscreen().catch(() => {});
-        }
-      }
-    } else {
-      saveTimerState(false, timeLeft, initialTime, mode);
-      setIsActive(false);
-    }
-  };
-
 const toggleTimer = () => {
     if (!isActive) {
       requestNotificationPermission();
