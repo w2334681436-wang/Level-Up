@@ -659,14 +659,12 @@ const DEFAULT_PRESETS = {
 };
 
 // ==================== 0. 新增工具：防休眠高精度定时器 (Web Worker) ====================
-// 解决浏览器后台运行时 setInterval 变慢/卡顿的核心方案
 function createWorkerTimer(callback, interval) {
   // 创建一个内联 Worker
   const blob = new Blob([`
     let timerId;
     self.onmessage = function(e) {
       if (e.data === 'start') {
-        // 在 Worker 线程中计时，不受页面后台休眠影响
         timerId = setInterval(() => {
           self.postMessage('tick');
         }, ${interval});
@@ -676,7 +674,9 @@ function createWorkerTimer(callback, interval) {
     };
   `], { type: 'application/javascript' });
 
-  const worker = new Worker(URL.createObjectURL(blob));
+  // 1. 先生成 URL 并保存到变量，以便后面释放
+  const blobUrl = URL.createObjectURL(blob);
+  const worker = new Worker(blobUrl);
   
   worker.onmessage = () => {
     callback();
@@ -685,11 +685,14 @@ function createWorkerTimer(callback, interval) {
   return {
     start: () => worker.postMessage('start'),
     stop: () => worker.postMessage('stop'),
-    terminate: () => worker.terminate()
+    // 2. 修复 terminate 语法，并正确释放内存
+    terminate: () => {
+        worker.terminate();
+        URL.revokeObjectURL(blobUrl); 
+    }
   };
 }
 
-// ==================== 1. 考研荣耀核心配置 (配置区) ====================
 
 // --- 5. 主组件 ---
 export default function LevelUpApp() {
@@ -1404,72 +1407,62 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
 
   useEffect(() => { loadData(); }, []);
 
-// --- 核心计时器逻辑 (已修改：使用 Web Worker 防卡顿) ---
-  useEffect(() => {
-    if (isActive) {
-      // 1. 记录开始状态
-      saveTimerState(true, timeLeft, initialTime, mode);
-      
-      // >>>>> 修改开始：使用 Worker Timer 替换 setInterval <<<<<
-      // 创建 Worker 计时器，间隔 1000ms
-      const workerTimer = createWorkerTimer(() => {
-        // 这里是回调函数，相当于原来的 setInterval 内部逻辑
-        
-        // 注意：在 React 的 useEffect 闭包中，我们需要小心处理 state 更新
-        // 这里使用函数式更新 setTimeLeft(prev => ...) 是安全的
-        
-        if (mode === 'overtime') {
-           // >>> 加时模式：正计时 <<<
-           setTimeLeft((prev) => prev + 1); 
-           setOvertimeSeconds((prev) => prev + 1);
-        } else {
-           // >>> 普通模式：倒计时 <<<
-           setTimeLeft((prev) => {
-             const newTime = prev - 1;
-             
-             // A. 如果专注时间到了
-             if (newTime <= 0 && mode === 'focus') {
-               workerTimer.stop(); // 停止 Worker
-               handleFocusTimeUp(); 
-               return 0;
-             }
-             
-             // B. 如果休息或游戏时间到了
-             if (newTime <= 0 && mode !== 'focus') {
-                workerTimer.stop(); // 停止 Worker
-                handleTimerComplete();
-                return 0;
-             }
+// 1. 新增一个 Ref 来追踪最新的回调逻辑
+const timerCallbackRef = useRef(null);
 
-             return newTime;
-           }); 
-        }
-      }, 1000);
-
-      // 启动 Worker
-      workerTimer.start();
-      
-      // 将 worker 实例存入 ref，方便 cleanup
-      timerRef.current = workerTimer;
-      // >>>>> 修改结束 <<<<<
-
+// 2. 每次渲染都更新这个 Ref (这样 Worker 里面调用的总是最新的函数)
+useEffect(() => {
+  timerCallbackRef.current = () => {
+    if (mode === 'overtime') {
+       setTimeLeft((prev) => prev + 1); 
+       setOvertimeSeconds((prev) => prev + 1);
     } else {
-      // 暂停状态
-      if (timerRef.current) {
-          timerRef.current.stop(); // 调用 worker 的 stop
-          if(timerRef.current.terminate) timerRef.current.terminate(); // 彻底销毁防内存泄漏
-      }
-      saveTimerState(false, timeLeft, initialTime, mode);
+       setTimeLeft((prev) => {
+         const newTime = prev - 1;
+         // 这里可以直接处理结束逻辑，或者触发外部函数
+         if (newTime <= 0 && mode === 'focus') {
+            handleFocusTimeUp(); // 注意：这里直接调用可能需要闭包配合，或者放入 useEffect 监听 timeLeft
+            return 0;
+         }
+         if (newTime <= 0 && mode !== 'focus') {
+            handleTimerComplete();
+            return 0;
+         }
+         return newTime;
+       }); 
     }
+  };
+});
+
+// 3. 修改核心计时器 useEffect
+useEffect(() => {
+  if (isActive) {
+    saveTimerState(true, timeLeft, initialTime, mode);
     
-    return () => {
-      // 组件卸载或依赖变化时清理
-      if (timerRef.current) {
-          timerRef.current.stop();
-          if(timerRef.current.terminate) timerRef.current.terminate();
-      }
-    };
-  }, [isActive, timeLeft, initialTime, mode]); // 依赖项保持不变
+    // 创建 Worker
+    const workerTimer = createWorkerTimer(() => {
+      // 在这里调用 Ref 中的最新逻辑
+      if (timerCallbackRef.current) timerCallbackRef.current();
+    }, 1000);
+
+    workerTimer.start();
+    timerRef.current = workerTimer;
+  } else {
+    if (timerRef.current) {
+       timerRef.current.stop();
+       if(timerRef.current.terminate) timerRef.current.terminate();
+    }
+    saveTimerState(false, timeLeft, initialTime, mode);
+  }
+  
+  return () => {
+    if (timerRef.current) {
+       timerRef.current.stop();
+       if(timerRef.current.terminate) timerRef.current.terminate();
+    }
+  };
+  // 关键：移除 timeLeft 依赖，只依赖开关和模式
+}, [isActive, mode]);
 
 // --- 终极版：每日自动复盘 (防重复 + 隐式触发) ---
   useEffect(() => {
@@ -1749,6 +1742,24 @@ const updateStudyStats = (seconds, log) => {
       setIsActive(false);
     }
   };
+
+const toggleTimer = () => {
+    if (!isActive) {
+      requestNotificationPermission();
+      saveTimerState(true, timeLeft, initialTime, mode);
+      setIsActive(true);
+      if (mode === 'focus') {
+        fetchZenQuote(); 
+        setIsZen(true);
+        if (appContainerRef.current && document.fullscreenEnabled) {
+             appContainerRef.current.requestFullscreen().catch(() => {});
+        }
+      }
+    } else {
+      saveTimerState(false, timeLeft, initialTime, mode);
+      setIsActive(false);
+    }
+  };
 
   const triggerStopTimer = () => setShowStopModal(true);
   
