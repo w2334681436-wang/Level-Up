@@ -200,222 +200,73 @@ const initialProgress = {
 };
 
 
-// ==================== 1. 考研荣耀核心配置 (配置区) ====================
+// ==================== 1. 经验值核心配置 (新) ====================
 
-const RANK_CONFIG = [
-  { name: '倔强青铜', id: 'bronze', subTiers: 3, starsPerTier: 3, iconColor: 'text-amber-700' }, // 青铜III-I，每段3星
-  { name: '秩序白银', id: 'silver', subTiers: 3, starsPerTier: 3, iconColor: 'text-gray-400' },
-  { name: '荣耀黄金', id: 'gold', subTiers: 4, starsPerTier: 4, iconColor: 'text-yellow-400' },
-  { name: '尊贵铂金', id: 'platinum', subTiers: 4, starsPerTier: 4, iconColor: 'text-cyan-300' },
-  { name: '永恒钻石', id: 'diamond', subTiers: 5, starsPerTier: 5, iconColor: 'text-fuchsia-400' }, // 钻石5星晋级
-  { name: '至尊星耀', id: 'starshine', subTiers: 5, starsPerTier: 5, iconColor: 'text-orange-400' },
-  { name: '最强王者', id: 'king', subTiers: 1, starsPerTier: 50, iconColor: 'text-yellow-500' }, // 0-49星
-  { name: '荣耀王者', id: 'glory_king', subTiers: 1, starsPerTier: 50, iconColor: 'text-red-500' }, // 50-99星
-  { name: '传奇王者', id: 'legendary_king', subTiers: 1, starsPerTier: 9999, iconColor: 'text-purple-500' } // 100+星 (新增)
-];
+// 简单的升级公式：每学习 60 分钟升一级
+// 你可以修改 60 为其他数值来调整升级难度
+const MINUTES_PER_LEVEL = 60; 
 
-// 战力牌子阈值 (根据你的要求修改)
-const BADGE_THRESHOLDS = [
-  { score: 20000, name: '大国标', color: 'bg-red-600 text-white border border-yellow-300 shadow-[0_0_10px_gold]' }, // 20000
-  { score: 15000, name: '小国标', color: 'bg-red-600 text-white' }, // 15000
-  { score: 10000, name: '省标', color: 'bg-yellow-500 text-black' }, // 10000
-  { score: 7000, name: '市标', color: 'bg-gray-300 text-black' },    // 7000
-  { score: 4000, name: '县标', color: 'bg-amber-700 text-white' },    // 4000
-  { score: 0, name: '无标', color: 'bg-gray-800 text-gray-500' }
-];
-
-// 分路配置 (映射你的科目)
-const LANE_CONFIG = {
-  math: { role: '打野', icon: '⚔️', name: '数学 (野王)', factor: 1.2 }, // 核心C位
-  cs: { role: '射手', icon: '🏹', name: '408 (射手)', factor: 1.1 },   // 后期大核
-  english: { role: '中路', icon: '🪄', name: '英语 (法师)', factor: 1.0 },
-  politics: { role: '辅助', icon: '🛡️', name: '政治 (辅助)', factor: 0.9 }
-};
-
-// ==================== 2. 核心计算逻辑 (逻辑区) ====================
-
-// 计算具体段位
-const calculateRankDetails = (totalStars) => {
-  let remainingStars = totalStars;
+const calculateLevelInfo = (totalMinutes) => {
+  const level = 1 + Math.floor(totalMinutes / MINUTES_PER_LEVEL);
+  const currentLevelProgress = totalMinutes % MINUTES_PER_LEVEL;
+  const nextLevelThreshold = MINUTES_PER_LEVEL;
+  const progressPercent = (currentLevelProgress / nextLevelThreshold) * 100;
   
-  for (let i = 0; i < RANK_CONFIG.length; i++) {
-    const rank = RANK_CONFIG[i];
-    
-    // 王者段位特殊处理 (无小段位，直接堆星)
-    if (['king', 'glory_king', 'legendary_king'].includes(rank.id)) {
-       const threshold = rank.starsPerTier;
-       // 如果是最后一个段位(传奇王者)或者星星不够升级了，就停在这里
-       if (rank.id === 'legendary_king' || remainingStars < threshold) {
-          // 对于荣耀王者和传奇王者，显示的星数是总星数
-          // 王者(0-49), 荣耀(50-99), 传奇(100+)
-          let displayStars = totalStars; 
-          // 修正逻辑：如果只想显示当前段位的星数，可以调整，但通常王者是看总星
-          return { ...rank, subTierDisplay: '', currentStars: remainingStars, totalDisplayStars: totalStars, isKing: true };
-       }
-       remainingStars -= threshold;
-       continue;
-    }
-
-    // 普通段位 (有小段位，如青铜 I, II, III)
-    const starsInThisRank = rank.subTiers * rank.starsPerTier;
-    if (remainingStars < starsInThisRank) {
-      // 计算小段位: 剩余星星 / 每段星星数。
-      // 例如青铜(每段3星)，剩4颗星 -> 4/3 = 1余1 -> 是第2个小段位(II)的第1颗星
-      // 注意：王者荣耀通常是倒序：III -> II -> I。index 0 是最低段。
-      const subTierIndex = Math.floor(remainingStars / rank.starsPerTier); 
-      const currentStars = remainingStars % rank.starsPerTier;
-      
-      const romanNumerals = ["V", "IV", "III", "II", "I"]; // 最多5段
-      // 截取当前段位实际的小段数
-      const actualRomans = romanNumerals.slice(5 - rank.subTiers);
-      
-      return { 
-        ...rank, 
-        subTierDisplay: actualRomans[subTierIndex] || 'I', 
-        currentStars, // 当前小段位的星星
-        isKing: false,
-        // 晋级赛判断：当前是该大段位的最后一个小段位 (subTierIndex 是最后一个)，且星星满了
-        isPromo: subTierIndex === rank.subTiers - 1 && currentStars === rank.starsPerTier - 1
-      };
-    }
-    remainingStars -= starsInThisRank;
-  }
-  return RANK_CONFIG[0]; // 默认青铜
-};
-
-// 计算今日净胜星数 (严格执行你的4小时分界线规则)
-const calculateDailyNetStars = (minutes) => {
-  const hours = minutes / 60;
-  if (hours < 1) return -4; // 0-1h 扣4星
-  if (hours < 2) return -3; // 1-2h 扣3星
-  if (hours < 3) return -2; // 2-3h 扣2星
-  if (hours < 4) return -1; // 3-4h 扣1星
-  if (hours < 5) return 0;  // 4-5h 保级 (不加不扣)
-  if (hours < 6) return 1;  // 5-6h 加1星
-  return 1 + Math.floor(hours - 5); // 之后每多1小时加1星
-};
-
-// ==================== 3. 新 UI 组件 (界面区) ====================
-
-const MobaRankCard = ({ totalStars, todayMinutes, peakScore, season, heroPowers }) => {
-  const rank = calculateRankDetails(totalStars);
-  const netStars = calculateDailyNetStars(todayMinutes);
-  const nextHourNet = calculateDailyNetStars(todayMinutes + 60);
-  
-  // 晋级赛逻辑：是大段位晋级 + 今日还没学够8小时
-  const isPromoMatch = rank.isPromo; 
-  const promoRequirementMet = todayMinutes >= 8 * 60;
-
-  // 获取最高战力科目
-  let maxPower = 0;
-  let maxBadge = '无标';
-  Object.values(heroPowers || {}).forEach(score => {
-     if (score > maxPower) maxPower = score;
-  });
-  const getBadgeName = (s) => (BADGE_THRESHOLDS.find(b => s >= b.score) || BADGE_THRESHOLDS[5]).name;
-  maxBadge = getBadgeName(maxPower);
-
-  return (
-    <div className="bg-gradient-to-br from-[#0f1119] via-[#1a1c2e] to-black p-4 rounded-xl border border-blue-900/50 shadow-2xl relative overflow-hidden group mb-4">
-      {/* 赛季标识 */}
-      <div className="flex justify-between items-start mb-2 relative z-10">
-         <div className="bg-black/60 border border-gray-700 px-2 py-0.5 rounded text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-           {season} 赛季
-         </div>
-         {peakScore > 0 && (
-           <div className="flex items-center gap-1 bg-gradient-to-r from-amber-900/50 to-black px-2 py-0.5 rounded border border-amber-600">
-             <span className="text-amber-500 text-[10px] font-bold">巅峰赛</span>
-             <span className="text-white font-mono text-xs font-bold">{peakScore}</span>
-           </div>
-         )}
-      </div>
-
-      <div className="flex items-center gap-4 relative z-10">
-        {/* 左侧：大段位图标 */}
-        <div className="relative flex-shrink-0">
-           <div className={`w-20 h-20 flex items-center justify-center rounded-full bg-gradient-to-b from-gray-800 to-black border-[3px] ${rank.id.includes('king') ? 'border-yellow-500 shadow-[0_0_20px_rgba(234,179,8,0.4)]' : 'border-gray-600'} shadow-lg`}>
-              <span className={`text-3xl ${rank.iconColor} drop-shadow-md`}>
-                 {rank.id.includes('king') ? '👑' : '🛡️'}
-              </span>
-           </div>
-           {/* 段位名 */}
-           <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 whitespace-nowrap bg-gray-900/90 px-2 py-0.5 rounded text-[10px] font-bold border border-gray-700 text-white shadow-lg">
-             {rank.name} {rank.subTierDisplay}
-           </div>
-        </div>
-
-        {/* 右侧：数据与状态 */}
-        <div className="flex-1 min-w-0">
-           <div className="flex items-baseline gap-1 mb-1">
-              <span className={`text-2xl font-black italic ${rank.iconColor}`}>
-                x{rank.isKing ? rank.totalDisplayStars : rank.currentStars}
-              </span>
-              <span className="text-gray-500 text-[10px]">当前星数</span>
-              {/* 显示最高牌子 */}
-              <span className="ml-auto text-[10px] px-1.5 py-0.5 bg-gray-800 rounded text-gray-300 border border-gray-700">
-                 最高: {maxBadge}
-              </span>
-           </div>
-
-           {/* 晋级赛特殊UI */}
-           {isPromoMatch && (
-             <div className={`text-[10px] px-2 py-1 rounded mb-2 border flex items-center gap-1 animate-pulse ${promoRequirementMet ? 'bg-green-900/30 border-green-500 text-green-400' : 'bg-red-900/30 border-red-500 text-red-400'}`}>
-               <span>⚡ 晋级赛:</span>
-               <span>{promoRequirementMet ? '条件已达成' : `需学满8h (当前 ${(todayMinutes/60).toFixed(1)})`}</span>
-             </div>
-           )}
-
-           {/* 今日结算预测 */}
-           <div className="bg-[#111] rounded p-2 border border-gray-800 flex justify-between items-center">
-              <div>
-                 <div className="text-[10px] text-gray-500">今日结算预测</div>
-                 <div className="text-[10px] text-gray-600">
-                   {netStars < 0 ? `再学1h: 少扣1星` : `再学1h: +1星`}
-                 </div>
-              </div>
-              <div className={`text-lg font-bold font-mono ${netStars >= 0 ? 'text-green-400' : 'text-red-500'}`}>
-                 {netStars > 0 ? '+' : ''}{netStars}
-              </div>
-           </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const HeroPowerList = ({ powers }) => {
-  const getBadge = (score) => {
-    return BADGE_THRESHOLDS.find(b => score >= b.score) || BADGE_THRESHOLDS[BADGE_THRESHOLDS.length - 1];
+  return {
+    level,
+    currentXP: currentLevelProgress,
+    nextLevelXP: nextLevelThreshold,
+    progressPercent,
+    title: `Lv.${level} 考研行者` // 你可以自定义不同等级的称号
   };
+};
+// ==================== 2. 新 UI 组件：经验值卡片 ====================
+
+const ExperienceCard = ({ todayMinutes, totalHistoryMinutes }) => {
+  // 计算总经验（历史 + 今天）
+  const totalMinutes = totalHistoryMinutes + todayMinutes;
+  const { level, currentXP, nextLevelXP, progressPercent, title } = calculateLevelInfo(totalMinutes);
 
   return (
-    <div className="grid grid-cols-2 gap-2 mb-4">
-      {Object.entries(LANE_CONFIG).map(([key, config]) => {
-         const score = powers[key] || 0;
-         const badge = getBadge(score);
-         
-         return (
-           <div key={key} className="bg-[#151725] p-2 rounded-lg border border-gray-800/60 flex items-center gap-2 hover:bg-[#1a1c2e] transition-colors group relative">
-              <div className="text-xl group-hover:scale-110 transition-transform">{config.icon}</div>
-              <div className="flex-1 min-w-0">
-                 <div className="flex justify-between items-center mb-0.5">
-                    <span className="text-[10px] font-bold text-gray-500">{config.role}</span>
-                    <span className={`text-[8px] px-1 rounded transform scale-90 origin-right ${badge.color}`}>
-                       {badge.name}
-                    </span>
-                 </div>
-                 <div className="text-xs font-bold text-gray-200 truncate">{config.name}</div>
-                 <div className="text-[10px] font-mono text-cyan-500">战力: {score}</div>
-              </div>
+    <div className="bg-gradient-to-br from-gray-900 to-black p-5 rounded-2xl border border-emerald-500/30 shadow-2xl relative overflow-hidden mb-6 group">
+      {/* 背景装饰 */}
+      <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl -mr-10 -mt-10"></div>
+      
+      <div className="flex items-center gap-5 relative z-10">
+        {/* 左侧：等级圆环 */}
+        <div className="relative flex-shrink-0 w-20 h-20 flex items-center justify-center">
+           <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+              <path className="text-gray-800" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+              <path className="text-emerald-500 transition-all duration-1000 ease-out" strokeDasharray={`${progressPercent}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+           </svg>
+           <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+              <span className="text-xs font-bold text-gray-400">LV</span>
+              <span className="text-2xl font-black font-mono leading-none">{level}</span>
            </div>
-         );
-      })}
+        </div>
+
+        {/* 右侧：数据详情 */}
+        <div className="flex-1 min-w-0">
+           <div className="text-emerald-400 font-bold text-sm tracking-widest uppercase mb-1">{title}</div>
+           <div className="text-white text-2xl font-mono font-bold mb-2">
+             {totalMinutes} <span className="text-xs text-gray-500 font-sans">min 累计专注</span>
+           </div>
+           
+           {/* 经验条 */}
+           <div className="relative w-full h-2 bg-gray-800 rounded-full overflow-hidden">
+             <div className="absolute top-0 left-0 h-full bg-emerald-500 shadow-[0_0_10px_#10b981] transition-all duration-700" style={{ width: `${progressPercent}%` }}></div>
+           </div>
+           <div className="flex justify-between text-[10px] text-gray-500 mt-1 font-mono">
+             <span>EXP: {currentXP} / {nextLevelXP}</span>
+             <span>再学 {nextLevelXP - currentXP}m 升级</span>
+           </div>
+        </div>
+      </div>
     </div>
   );
 };
 
-
-// --- 4. 组件：学习进度面板 ---
+// --- 3. 组件：学习进度面板 ---
 const LearningProgressPanel = ({ learningProgress, onProgressUpdate, isMobileView }) => {
   const [editingSubject, setEditingSubject] = useState(null);
   const [tempContent, setTempContent] = useState(''); 
@@ -582,17 +433,6 @@ const HistoryView = ({ history, isOpen, onClose }) => {
                     ⏱️ {formatDurationCN(selectedDateData.studyMinutes)}
                   </span>
                 </h3>
-
-                <div className="grid grid-cols-2 gap-3 md:gap-4 mb-6">
-                  <div className="bg-gray-900/50 p-3 md:p-4 rounded-lg border border-gray-800">
-                    <div className="text-gray-400 text-xs md:text-sm">游戏券余额</div>
-                    <div className="text-purple-400 font-bold text-base md:text-lg">{selectedDateData.gameBank}m</div>
-                  </div>
-                  <div className="bg-gray-900/50 p-3 md:p-4 rounded-lg border border-gray-800">
-                    <div className="text-gray-400 text-xs md:text-sm">游戏时间使用</div>
-                    <div className="text-blue-400 font-bold text-base md:text-lg">{selectedDateData.gameUsed}m</div>
-                  </div>
-                </div>
 
                 <h4 className="font-bold text-gray-400 mb-3 text-sm md:text-base">学习记录</h4>
                 <div className="space-y-3 pb-16 md:pb-0">
@@ -871,34 +711,9 @@ export default function LevelUpApp() {
   const audioRef = useRef(null);                                 // 音频引用
   
   // 数据状态
-  const [todayStats, setTodayStats] = useState({ date: getTodayDateString(), studyMinutes: 0, gameBank: 0, gameUsed: 0, logs: [] });
-  const [history, setHistory] = useState([]);
+const [todayStats, setTodayStats] = useState({ date: getTodayDateString(), studyMinutes: 0, logs: [] });  const [history, setHistory] = useState([]);
   const [learningProgress, setLearningProgress] = useState(initialProgress); 
-  // --- 考研荣耀：段位与战力系统状态 ---
-  const [rankState, setRankState] = useState(() => {
-    try {
-      const saved = localStorage.getItem('moba_rank_state');
-      // 默认初始：青铜III (3*3) - 3(当前3) = 总星星0 ? 
-      // 不，我们给点初始资金，比如 3 颗星 (青铜III满星)
-      return saved ? JSON.parse(saved) : { 
-        totalStars: 3, 
-        season: `${new Date().getMonth() + 1}月赛季`, // 自动生成当前月份赛季
-        highestRank: '倔强青铜 III',
-        peakScore: 1200 // 巅峰赛初始分
-      };
-    } catch (e) {
-      return { totalStars: 3, season: 'S1', highestRank: '青铜', peakScore: 1200 };
-    }
-  });
-
-  const [heroPowers, setHeroPowers] = useState(() => {
-    try {
-      const saved = localStorage.getItem('moba_hero_powers');
-      return saved ? JSON.parse(saved) : { math: 0, english: 0, politics: 0, cs: 0 };
-    } catch (e) {
-      return { math: 0, english: 0, politics: 0, cs: 0 };
-    }
-  });
+ 
   
   // AI 设置状态
   const [apiKey, setApiKey] = useState(''); 
@@ -1388,7 +1203,7 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
     const dotCount = Math.floor(Date.now() / 1000) % 4;
     const dots = ".".repeat(dotCount).padEnd(3, ' '); 
     
-    let headerText = `⚡ 对局进行中${dots}`;
+    let headerText = `⚡ 专注进行中${dots}`;
 
     // 根据模式切换皮肤
     if (seconds <= 0 && currentMode === 'focus') { 
@@ -1397,16 +1212,12 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
         headerText = "⚠ 专注目标达成";
     } else if (currentMode === 'overtime') { 
         theme = { primary: '#fbbf24', glow: '#d97706', bgGradientStart: '#451a03', bgGradientEnd: '#000000', textShadow: 20 };
-        statusText = `PEAK SCORE: ${rankState.peakScore}`; 
+        statusText = "LIMIT BREAK MODE"; 
         headerText = `🏆 巅峰加时${dots}`;
     } else if (currentMode === 'break') { 
         theme = { primary: '#60a5fa', glow: '#2563eb', bgGradientStart: '#172554', bgGradientEnd: '#000000', textShadow: 15 };
         statusText = `RECOVERING${dots}`;
-        headerText = `💤 泉水回血${dots}`;
-    } else if (currentMode === 'gaming') { 
-        theme = { primary: '#c084fc', glow: '#7e22ce', bgGradientStart: '#3b0764', bgGradientEnd: '#000000', textShadow: 15 };
-        statusText = "ENTERTAINMENT";
-        headerText = `🎮 娱乐放松中${dots}`;
+        headerText = `💤 休息回血${dots}`;
     }
 
     // --- 2. 绘制背景 ---
@@ -1691,7 +1502,7 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
             Yesterday's Stats (${yesterday}):
             - Study: ${(yesterdayData.studyMinutes/60).toFixed(1)}h
             - Tasks: ${yesterdayData.logs.map(l => l.content).join('; ')}
-            - Level: Lv.${calculateLevelStats(history.reduce((a,c)=>a+(c.studyMinutes||0),0) + todayStats.studyMinutes).level}
+           - Level: Lv.${calculateLevelInfo(history.reduce((a,c)=>a+(c.studyMinutes||0),0) + todayStats.studyMinutes).level}
             
             ACTION REQUIRED:
             Proactively message the user.
@@ -1742,171 +1553,43 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
 
 const updateStudyStats = (seconds, log) => {
     const m = Math.floor(seconds / 60);
-    const g = Math.floor(m / 10); 
     
     // 1. 基础数据更新
     const newStats = { 
       ...todayStats, 
       studyMinutes: todayStats.studyMinutes + m, 
-      gameBank: todayStats.gameBank + g, 
       logs: [...todayStats.logs, { time: new Date().toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'}), content: log, duration: m }] 
     };
     
-    // 2. 战力更新 (Hero Power)
-    const lowerLog = log.toLowerCase();
-    let targetSubject = null;
+    // 2. 触发 AI 进度更新
+    autoUpdateProgress(log, learningProgress); 
     
-    // 关键词匹配分路
-    if (lowerLog.includes('数学') || lowerLog.includes('math') || lowerLog.includes('高数')) targetSubject = 'math';
-    else if (lowerLog.includes('英语') || lowerLog.includes('english') || lowerLog.includes('单词')) targetSubject = 'english';
-    else if (lowerLog.includes('政治') || lowerLog.includes('politics') || lowerLog.includes('肖秀荣')) targetSubject = 'politics';
-    else if (lowerLog.includes('408') || lowerLog.includes('cs') || lowerLog.includes('数据结构')) targetSubject = 'cs';
-    
-    if (targetSubject) {
-       // 基础分：1分钟 = 4战力 (可调整)
-       const baseScore = m * 4; 
-       const laneFactor = LANE_CONFIG[targetSubject].factor;
-       
-       // 巅峰系数加成：(巅峰分 - 1200) / 100 * 1% (每100分加1%)
-       // 例如 1500分 -> 加成 3%
-       const peakFactor = 1 + Math.max(0, (rankState.peakScore - 1200) / 10000);
-       
-       const scoreToAdd = Math.floor(baseScore * laneFactor * peakFactor);
-       
-       setHeroPowers(prev => {
-         const newState = { ...prev, [targetSubject]: prev[targetSubject] + scoreToAdd };
-         localStorage.setItem('moba_hero_powers', JSON.stringify(newState));
-         return newState;
-       });
-       
-       addNotification(`战力增加: ${LANE_CONFIG[targetSubject].name} +${scoreToAdd}`, "success");
-    }
-
-    // 3. 加时模式下：增加巅峰积分
-    if (mode === 'overtime') {
-       // 加时 1分钟 = +2 巅峰分 (可调整难度)
-       const peakAdded = m * 2;
-       setRankState(prev => {
-         const newState = { ...prev, peakScore: prev.peakScore + peakAdded };
-         localStorage.setItem('moba_rank_state', JSON.stringify(newState));
-         return newState;
-       });
-       addNotification(`巅峰积分 +${peakAdded}`, "success");
-    }
-
     setTodayStats(newStats);
     saveData(newStats); // 保存历史
-    autoUpdateProgress(log, learningProgress); 
+    addNotification(`专注完成！获得 ${m} 点经验值`, "success");
   };
 
-  // --- 每日结算监听器 ---
-  useEffect(() => {
-    // 只有当历史数据加载完毕后才运行
-    if (loading) return;
-
-    const lastSettleDate = localStorage.getItem('last_settle_date');
-    const today = getTodayDateString();
-    
-    // 如果上次结算不是今天，且历史记录里有昨天的数据（或者是新的一天开始）
-    if (lastSettleDate !== today) {
-       // 获取昨天日期
-       const d = new Date();
-       d.setDate(d.getDate() - 1);
-       const yesterdayStr = d.toISOString().split('T')[0];
-       
-       // 从历史里找昨天的数据
-       const yesterdayData = history.find(d => d.date === yesterdayStr);
-       const yesterdayMins = yesterdayData ? yesterdayData.studyMinutes : 0;
-       
-       // 计算星星变化
-       const starsChange = calculateDailyNetStars(yesterdayMins);
-       
-       // 晋级赛判定
-       const currentDetails = calculateRankDetails(rankState.totalStars);
-       const isPromo = currentDetails.isPromo;
-       
-       let finalChange = starsChange;
-       let promoMsg = "";
-
-       // 晋级赛特殊规则：如果是晋级点，且昨天没学够8小时(480分钟)
-       if (isPromo && starsChange > 0 && yesterdayMins < 480) {
-          finalChange = 0; // 强制不能加星
-          promoMsg = "\n⛔ 晋级赛失败：昨日未达8小时考核线";
-       }
-
-       // 更新状态
-       const newTotalStars = Math.max(0, rankState.totalStars + finalChange);
-       
-       // 赛季轮换检测 (简单的月份轮换)
-       const currentMonthSeason = `${new Date().getMonth() + 1}月赛季`;
-       let seasonMsg = "";
-       let finalSeason = rankState.season;
-       
-       if (rankState.season !== currentMonthSeason) {
-           // 新赛季！
-           finalSeason = currentMonthSeason;
-           seasonMsg = `\n🎉 新赛季开启！当前为 ${currentMonthSeason}`;
-           // 这里可以加重置段位逻辑，比如 totalStars * 0.8
-       }
-
-       const newRankState = {
-           ...rankState,
-           totalStars: newTotalStars,
-           season: finalSeason
-       };
-       
-       setRankState(newRankState);
-       localStorage.setItem('moba_rank_state', JSON.stringify(newRankState));
-       localStorage.setItem('last_settle_date', today);
-       
-       // 弹窗通知
-       if (yesterdayMins > 0 || finalChange !== 0) {
-         setConfirmState({
-           isOpen: true,
-           title: "📅 昨日排位结算报告",
-           message: `昨日投入: ${(yesterdayMins/60).toFixed(1)} 小时\n段位变更: ${finalChange >= 0 ? '+' : ''}${finalChange} ⭐${promoMsg}${seasonMsg}\n当前段位: ${calculateRankDetails(newTotalStars).name}`,
-           onConfirm: closeConfirm,
-           confirmText: "我以此为荣"
-         });
-       }
-    }
-  }, [loading, history, rankState]);
-
-  const updateGameStats = (seconds) => {
-    const m = Math.floor(seconds / 60);
-    saveData({ ...todayStats, gameUsed: todayStats.gameUsed + m, gameBank: Math.max(0, todayStats.gameBank - m) });
-  };
 
   const switchMode = (newMode) => {
-    setIsActive(false);
-    setIsZen(false);
-    
-    if (newMode === 'gaming') {
-      if (todayStats.gameBank <= 0) {
-        addNotification("⛔ 你的游戏券余额为0！请先去专注学习！", "error");
-        setMode('focus');
-        setInitialTime(45 * 60);
-        setTimeLeft(45 * 60);
-        return;
-      }
-      const availableSeconds = todayStats.gameBank * 60;
-      setMode(newMode);
-      setInitialTime(availableSeconds);
-      setTimeLeft(availableSeconds);
-    } else {
-      setMode(newMode);
-      if (newMode === 'focus') {
-        const defaultFocusTime = 45 * 60;
-        setInitialTime(defaultFocusTime);
-        setTimeLeft(defaultFocusTime);
-      } else if (newMode === 'break') {
-        const defaultBreakTime = 10 * 60;
-        setInitialTime(defaultBreakTime); 
-        setTimeLeft(defaultBreakTime);
-      }
-    }
-    saveTimerState(false, timeLeft, initialTime, newMode);
-  };
+    setIsActive(false);
+    setIsZen(false);
+    
+    // 如果传入 gaming，强行转为 break 或 focus，防止出错
+    if (newMode === 'gaming') return; 
+
+    setMode(newMode);
+    if (newMode === 'focus') {
+      const defaultFocusTime = 45 * 60;
+      setInitialTime(defaultFocusTime);
+      setTimeLeft(defaultFocusTime);
+    } else if (newMode === 'break') {
+      const defaultBreakTime = 10 * 60;
+      setInitialTime(defaultBreakTime); 
+      setTimeLeft(defaultBreakTime);
+    }
+    
+    saveTimerState(false, timeLeft, initialTime, newMode);
+  };
 
   const openManualLog = () => {
     setIsManualLog(true);
@@ -1959,7 +1642,6 @@ const updateStudyStats = (seconds, log) => {
       // 这里也可以额外弹个 Toast 强调一下
       addNotification("🌟 专注结束！快去接杯水，活动活动脖子吧！", "success");
     } else {
-      if (mode === 'gaming') updateGameStats(initialTime);
       playAlarm(); 
       setShowTimeUpModal(true); 
     }
@@ -2049,11 +1731,7 @@ const updateStudyStats = (seconds, log) => {
     // localStorage.setItem(`last_${mode}_duration`, minutes); 
   };
   
-  const toggleTimer = () => {
-    if (mode === 'gaming' && todayStats.gameBank <= 0 && !isActive) {
-      addNotification("余额不足，无法开始游戏！", "error");
-      return;
-    }
+
     
     if (!isActive) {
       requestNotificationPermission()
@@ -2131,12 +1809,7 @@ const updateStudyStats = (seconds, log) => {
     
     if(document.fullscreenElement) document.exitFullscreen().catch(()=>{}); 
 
-    if (mode === 'gaming') {
-      updateGameStats(initialTime - timeLeft);
-      setInitialTime(timeLeft); 
-      saveTimerState(false, timeLeft, timeLeft, mode);
-      addNotification("游戏暂停，剩余时间已保存", "info");
-    } else if (mode === 'overtime') {
+    if (mode === 'overtime') {
       // >>> 加时模式结算逻辑 <<<
       const totalTime = initialTime + timeLeft;
       setPendingStudyTime(totalTime);
@@ -2201,9 +1874,7 @@ const updateStudyStats = (seconds, log) => {
         // 核心数据
         history: history,
         progress: learningProgress,
-        // 游戏化数据 (关键新增)
-        rankState: rankState,
-        heroPowers: heroPowers,
+
         // 个性化配置
         settings: {
           customTargetHours: customTargetHours,
@@ -2282,59 +1953,49 @@ const updateStudyStats = (seconds, log) => {
     e.target.value = '';
   };
 
- const confirmImportData = (data) => {
-    try {
-      // 1. 恢复核心数据
-      if (data.history) {
-          localStorage.setItem('levelup_history', JSON.stringify(data.history));
-          setHistory(data.history);
-      }
-      if (data.progress) {
-          localStorage.setItem('levelup_progress', JSON.stringify(data.progress));
-          setLearningProgress(data.progress);
-      }
+const confirmImportData = (data) => {
+    try {
+      // 1. 恢复核心数据
+      if (data.history) {
+          localStorage.setItem('levelup_history', JSON.stringify(data.history));
+          setHistory(data.history);
+      }
+      if (data.progress) {
+          localStorage.setItem('levelup_progress', JSON.stringify(data.progress));
+          setLearningProgress(data.progress);
+      }
 
-      // 2. 恢复游戏化数据 (关键新增)
-      if (data.rankState) {
-          localStorage.setItem('moba_rank_state', JSON.stringify(data.rankState));
-          setRankState(data.rankState);
-      }
-      if (data.heroPowers) {
-          localStorage.setItem('moba_hero_powers', JSON.stringify(data.heroPowers));
-          setHeroPowers(data.heroPowers);
-      }
-
-      // 3. 恢复设置
-      if (data.settings) {
-        const s = data.settings;
-        if (s.customTargetHours) saveTargetHours(s.customTargetHours);
-        if (s.customPersona) { setCustomPersona(s.customPersona); localStorage.setItem('ai_persona', s.customPersona); }
-        if (s.customUserBackground) { setCustomUserBackground(s.customUserBackground); localStorage.setItem('user_background', s.customUserBackground); }
-        if (s.selectedProvider) { setSelectedProvider(s.selectedProvider); localStorage.setItem('ai_provider', s.selectedProvider); }
-        if (s.apiBaseUrl) { setApiBaseUrl(s.apiBaseUrl); localStorage.setItem('ai_base_url', s.apiBaseUrl); }
-        if (s.apiModel) { setApiModel(s.apiModel); localStorage.setItem('ai_model', s.apiModel); }
-        if (s.userBubbleColor && s.aiBubbleColor) saveBubbleColors(s.userBubbleColor, s.aiBubbleColor);
-        if (s.deepThinkingMode !== undefined) saveDeepThinkingMode(s.deepThinkingMode);
-        
-        if (s.timerPresets) {
-            setTimerPresets(s.timerPresets);
-            localStorage.setItem('timer_custom_presets', JSON.stringify(s.timerPresets));
-        }
-        if (s.customAlarmSound) {
-            setCustomAlarmSound(s.customAlarmSound);
-            localStorage.setItem('custom_alarm_sound', s.customAlarmSound);
-        }
-      }
-      
-      // 重新加载数据以确保所有状态同步
-      loadData();
-      closeConfirm();
-      addNotification("数据完美恢复！段位战力已同步。", "success");
-      setPendingImportData(null);
-    } catch (error) {
-      addNotification("导入过程中出现错误: " + error.message, "error");
-    }
-  };
+      // 2. 恢复设置
+      if (data.settings) {
+        const s = data.settings;
+        if (s.customTargetHours) saveTargetHours(s.customTargetHours);
+        if (s.customPersona) { setCustomPersona(s.customPersona); localStorage.setItem('ai_persona', s.customPersona); }
+        if (s.customUserBackground) { setCustomUserBackground(s.customUserBackground); localStorage.setItem('user_background', s.customUserBackground); }
+        if (s.selectedProvider) { setSelectedProvider(s.selectedProvider); localStorage.setItem('ai_provider', s.selectedProvider); }
+        if (s.apiBaseUrl) { setApiBaseUrl(s.apiBaseUrl); localStorage.setItem('ai_base_url', s.apiBaseUrl); }
+        if (s.apiModel) { setApiModel(s.apiModel); localStorage.setItem('ai_model', s.apiModel); }
+        if (s.userBubbleColor && s.aiBubbleColor) saveBubbleColors(s.userBubbleColor, s.aiBubbleColor);
+        if (s.deepThinkingMode !== undefined) saveDeepThinkingMode(s.deepThinkingMode);
+        
+        if (s.timerPresets) {
+            setTimerPresets(s.timerPresets);
+            localStorage.setItem('timer_custom_presets', JSON.stringify(s.timerPresets));
+        }
+        if (s.customAlarmSound) {
+            setCustomAlarmSound(s.customAlarmSound);
+            localStorage.setItem('custom_alarm_sound', s.customAlarmSound);
+        }
+      }
+      
+      // 重新加载数据以确保所有状态同步
+      loadData();
+      closeConfirm();
+      addNotification("数据完美恢复！", "success"); 
+      setPendingImportData(null);
+    } catch (error) {
+      addNotification("导入过程中出现错误: " + error.message, "error");
+    }
+  };
 
   const fetchAvailableModels = async () => {
     if (!apiKey) return addNotification("请先输入 API Key！", "error");
@@ -2660,14 +2321,12 @@ ${todayLogDetails}`;
  const getThemeColor = () => {
     if (mode === 'focus') return 'text-emerald-400 border-emerald-500 shadow-emerald-900/50';
     if (mode === 'break') return 'text-blue-400 border-blue-500 shadow-blue-900/50';
-    if (mode === 'gaming') return 'text-purple-400 border-purple-500 shadow-purple-900/50';
     if (mode === 'overtime') return 'text-amber-400 border-amber-500 shadow-amber-900/50 drop-shadow-[0_0_15px_rgba(251,191,36,0.5)]'; // 金色传说
   };
   
   const getBgColor = () => {
      if (mode === 'focus') return 'from-emerald-950/90 to-black';
      if (mode === 'break') return 'from-blue-950/90 to-black';
-     if (mode === 'gaming') return 'from-purple-950/90 to-black';
      if (mode === 'overtime') return 'from-amber-950/90 to-black'; // 金色背景
   };
 
@@ -2780,16 +2439,11 @@ ${todayLogDetails}`;
               )}
             </button>
 
-          {/* --- 桌面端：考研荣耀段位卡片 --- */}
-<MobaRankCard 
-  totalStars={rankState.totalStars} 
-  todayMinutes={todayStats.studyMinutes} 
-  peakScore={rankState.peakScore} 
-  season={rankState.season}
-  heroPowers={heroPowers}
+          {/* 传入今日时长和历史总时长 */}
+<ExperienceCard 
+  todayMinutes={todayStats.studyMinutes}
+  totalHistoryMinutes={history.reduce((acc, curr) => acc + (curr.studyMinutes || 0), 0)}
 />
-{/* --- 桌面端：分路战力榜 --- */}
-<HeroPowerList powers={heroPowers} />
           
             <button 
               onClick={() => setShowHistory(true)}
@@ -2880,26 +2534,16 @@ ${todayLogDetails}`;
             >
               <Coffee className="w-4 h-4" /> <span>休息</span>
             </button>
-            <button 
-              onClick={() => switchMode('gaming')}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all ${mode === 'gaming' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'text-gray-500 hover:text-gray-300'}`}
-            >
-              <Gamepad2 className="w-4 h-4" /> <span>游戏</span>
-            </button>
+            
           </div>
         </div>
 
         <div className={`md:hidden w-full space-y-4 pt-4 overflow-y-auto ${activeView !== 'stats' ? 'hidden' : ''}`}>
-         {/* --- 移动端：考研荣耀段位卡片 --- */}
-<MobaRankCard 
-  totalStars={rankState.totalStars} 
-  todayMinutes={todayStats.studyMinutes} 
-  peakScore={rankState.peakScore} 
-  season={rankState.season}
-  heroPowers={heroPowers}
+        {/* 传入今日时长和历史总时长 */}
+<ExperienceCard 
+  todayMinutes={todayStats.studyMinutes}
+  totalHistoryMinutes={history.reduce((acc, curr) => acc + (curr.studyMinutes || 0), 0)}
 />
-{/* --- 移动端：分路战力榜 --- */}
-<HeroPowerList powers={heroPowers} />
           <div className="bg-[#111116] rounded-xl p-4 border border-gray-800">
             <div className="flex items-center gap-2 mb-3">
               <BarChart3 className="w-5 h-5 text-emerald-400" />
@@ -2912,10 +2556,6 @@ ${todayLogDetails}`;
                 <span className="text-white font-mono">{(todayStats.studyMinutes/60).toFixed(1)}h</span>
               </div>
               
-              <div className="flex justify-between items-center">
-                <span className="text-gray-400">游戏余额</span>
-                <span className="text-purple-400 font-mono">{todayStats.gameBank}m</span>
-              </div>
               
               <div className="pt-2 border-t border-gray-800">
                 <div className="flex justify-between text-xs mb-1 text-gray-400">
@@ -3018,12 +2658,7 @@ ${todayLogDetails}`;
             >
               <Coffee className="w-4 h-4" /> <span>休息</span>
             </button>
-            <button 
-              onClick={() => switchMode('gaming')}
-              className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all ${mode === 'gaming' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.3)]' : 'text-gray-500 hover:text-gray-300'}`}
-            >
-              <Gamepad2 className="w-4 h-4" /> <span>奖励时刻</span>
-            </button>
+           
           </div>
 
       <div className={`relative mb-8 md:mb-12 group transition-all duration-700 ease-in-out ${isZen ? 'scale-125 md:scale-[2.5]' : 'scale-90 md:scale-100 landscape:scale-75 landscape:mb-4'}`}>
@@ -3031,7 +2666,7 @@ ${todayLogDetails}`;
           <div className={`
     absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full -z-10 
     transition-all duration-700 ease-in-out mix-blend-screen pointer-events-none
-    ${mode === 'focus' ? 'bg-emerald-600/30' : mode === 'break' ? 'bg-blue-600/30' : mode === 'gaming' ? 'bg-purple-600/30' : 'bg-amber-600/40'}
+    ${mode === 'focus' ? 'bg-emerald-600/30' : mode === 'break' ? 'bg-blue-600/30' : 'bg-amber-600/40'}
     ${isZen 
       ? 'w-[120%] h-[120%] blur-[40px] opacity-40'  /* 禅模式 */
       : 'w-[220%] h-[220%] blur-[80px] md:blur-[100px] opacity-50' /* 主页模式 */
@@ -3074,7 +2709,7 @@ ${todayLogDetails}`;
                  
                  {/* --- 修改文字标签 --- */}
                  <div className={`text-sm mt-4 font-bold tracking-widest uppercase transition-all duration-500 ${mode === 'focus' ? 'text-emerald-400' : mode === 'break' ? 'text-blue-400' : mode === 'gaming' ? 'text-purple-400' : 'text-amber-400'} ${isZen ? 'opacity-50' : 'opacity-100'}`}>
-                   {mode === 'focus' ? 'DEEP WORK' : mode === 'break' ? 'RECHARGE' : mode === 'gaming' ? 'GAME ON' : 'GOLDEN TIME'}
+                   {mode === 'focus' ? 'DEEP WORK' : mode === 'break' ? 'RECHARGE' : 'GOLDEN TIME'}
                  </div>
                  
                  {!isZen && mode === 'focus' && isActive && (
