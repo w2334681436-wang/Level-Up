@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Play, Pause, Square, RotateCcw, Gamepad2, BookOpen, Coffee, Save, 
+  Play, Pause, Square, RotateCcw,  BookOpen, Coffee, Save, 
   History, Trophy, AlertCircle, X, CheckCircle2, Download, Upload, 
   Settings, Target, Maximize2, Minimize2, AlertTriangle, Sparkles, 
   BrainCircuit, Server, Cpu, RefreshCw, List, Send, Smile, Search, 
@@ -654,7 +654,6 @@ return <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none z
 const DEFAULT_PRESETS = {
   focus: [25, 45, 60, 90],
   break: [5, 10, 15, 20],
-  gaming: [15, 30, 45, 60],
   overtime: []
 };
 
@@ -1053,7 +1052,7 @@ const addNotification = (message, type = 'info') => {
         setTodayStats(todayData);
       } else {
         // 新的一天：游戏时间重置为 0，不再继承上一天的余额
-        setTodayStats({ date: todayStr, studyMinutes: 0, gameBank: 0, gameUsed: 0, logs: [] });
+        setTodayStats({ date: todayStr, studyMinutes: 0, logs: [] });
       }
 
       const storedTimerStateText = localStorage.getItem('levelup_timer_state');
@@ -1566,9 +1565,6 @@ const updateStudyStats = (seconds, log) => {
   const switchMode = (newMode) => {
     setIsActive(false);
     setIsZen(false);
-    
-    // 如果传入 gaming，强行转为 break 或 focus，防止出错
-    if (newMode === 'gaming') return; 
 
     setMode(newMode);
     if (newMode === 'focus') {
@@ -2199,7 +2195,6 @@ const startAICoach = () => {
       
       const todayEntry = `📅 [${todayStats.date}] (今天):
    - 总投入: ${(todayStats.studyMinutes / 60).toFixed(1)}h / 目标${target}h
-   - 游戏券余额: ${todayStats.gameBank}m
    - 详细日志:
 ${todayLogDetails}`;
 
@@ -2219,7 +2214,6 @@ ${todayLogDetails}`;
         1. 目标: 上海交大/中科大AI硕士(2026)。
         2. 每日目标: ${target}小时。
         3. 背景: ${customUserBackground || '未填写'}
-        4. 规则: 专注10分钟 = 1分钟游戏券。
         
         【总体学科进度】
         - 英语: ${learningProgress.english.content || '无'}
@@ -2700,7 +2694,7 @@ ${todayLogDetails}`;
                  </div>
                  
                  {/* --- 修改文字标签 --- */}
-                 <div className={`text-sm mt-4 font-bold tracking-widest uppercase transition-all duration-500 ${mode === 'focus' ? 'text-emerald-400' : mode === 'break' ? 'text-blue-400' : mode === 'gaming' ? 'text-purple-400' : 'text-amber-400'} ${isZen ? 'opacity-50' : 'opacity-100'}`}>
+                 <div className={`text-sm mt-4 font-bold tracking-widest uppercase transition-all duration-500 ${mode === 'focus' ? 'text-emerald-400' : mode === 'break' ? 'text-blue-400' : 'text-amber-400'} ${isZen ? 'opacity-50' : 'opacity-100'}`}>
                    {mode === 'focus' ? 'DEEP WORK' : mode === 'break' ? 'RECHARGE' : 'GOLDEN TIME'}
                  </div>
                  
