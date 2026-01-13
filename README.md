@@ -1,5 +1,4 @@
-# 🚀 LevelUp AI Coach (考研飞升计划)
-
+# 🚀 LevelUp AI Coach 
 > "Gamify Your Growth, AI Your Potential."
 
 **LevelUp AI Coach** 是一个基于 **React 19 + Vite** 构建的沉浸式、游戏化考研备考助手。它不仅仅是一个番茄钟，更是一个运行在浏览器中的“伪软件”(PWA)，结合了 **DeepSeek R1 / Gemini / OpenAI** 等大模型能力，充当您的全天候私人考研教练。
@@ -18,7 +17,7 @@
 
 ### 🤖 2. AI 智能导师 (AI Coach Integration)
 * **多模型支持**：内置对接 **SiliconFlow (硅基流动)**、**DeepSeek 官方**、**Google Gemini**、**豆包**、**Kimi**、**阿里云** 等主流 API。
-* **深度思考模式 (Deep Thinking)**：支持切换 AI 回复模式，开启后获取更深度的逻辑分析（适配 DeepSeek-R1 等推理模型）。
+* **深度思考模式 (Deep Thinking)**：支持切换 AI 回复模式，开启后获取更深度的逻辑分析（ DeepSeek-R1 等推理模型）。
 * **全息档案记忆**：AI 拥有“长短期记忆”，自动读取你最近 30 天的学习日志、科目进度和背景档案，提供个性化复盘。
 * **每日自动复盘**：每天首次启动，AI 会隐式触发昨日常规复盘，分析战况并给予建议。
 * **智能进度融合**：输入简单的打卡日志（如“做了660题”），AI 自动将其融合进对应的学科进度描述中。
