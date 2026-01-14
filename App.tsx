@@ -267,37 +267,68 @@ const ExperienceCard = ({ todayMinutes, totalHistoryMinutes }) => {
 };
 
 // --- 3. 组件：学习进度面板 ---
-const LearningProgressPanel = ({ learningProgress, onEdit }) => { // 1. 参数改为 onEdit
-  const subjects = Object.entries(SUBJECT_CONFIG);
+const LearningProgressPanel = ({ learningProgress, onProgressUpdate, isMobileView }) => {
+  const [editingSubject, setEditingSubject] = useState(null);
+  const [tempContent, setTempContent] = useState(''); 
 
-  return (
-    <div className="bg-[#1a1a20] border border-gray-700/50 rounded-xl p-4 space-y-3 relative z-10 shadow-lg">
-      <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2 mb-3">
-        <TrendingUp className="w-4 h-4 text-cyan-400" /> 学习进度追踪
-      </h2>
+  const startEdit = (subjectKey, currentContent) => {
+    setEditingSubject(subjectKey);
+    setTempContent(currentContent);
+  };
 
-      {subjects.map(([key, config]) => (
-        <div key={key} className="bg-gray-900/50 p-3 rounded-lg border border-gray-800 space-y-2">
-          <div className="flex justify-between items-start mb-1">
-            <span className={`font-semibold ${config.color}`}>{config.name}</span>
-            <button 
-              // 2. 点击直接调用父组件方法
-              onClick={() => onEdit(key, learningProgress[key]?.content)}
-              className="text-gray-500 hover:text-cyan-400 transition flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-800/50 hover:bg-gray-700"
-            >
-              <Edit className="w-3 h-3 flex-shrink-0" /> 编辑
-            </button>
-          </div>
-          
-          <div className="text-xs text-gray-300 bg-black/30 p-2 rounded-lg max-h-24 overflow-y-auto whitespace-pre-wrap font-mono scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
-             {learningProgress[key].content || '暂无详细学习记录。'}
-          </div>
+  const saveEdit = (subjectKey) => {
+    onProgressUpdate(subjectKey, tempContent, 'manual');
+    setEditingSubject(null);
+  };
+  
+  const subjects = Object.entries(SUBJECT_CONFIG);
 
-          <p className="text-[10px] text-gray-500 mt-1 text-right">上次更新: {learningProgress[key].lastUpdate}</p>
-        </div>
-      ))}
-    </div>
-  );
+  return (
+    <div className="bg-[#1a1a20] border border-gray-700/50 rounded-xl p-4 space-y-3 relative z-10 shadow-lg">
+      <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2 mb-3">
+        <TrendingUp className="w-4 h-4 text-cyan-400" /> 学习进度追踪
+      </h2>
+
+      {subjects.map(([key, config]) => (
+        <div key={key} className="bg-gray-900/50 p-3 rounded-lg border border-gray-800 space-y-2">
+          <div className="flex justify-between items-start mb-1">
+            <span className={`font-semibold ${config.color}`}>{config.name}</span>
+            <button 
+              onClick={() => startEdit(key, learningProgress[key].content)}
+              className="text-gray-500 hover:text-cyan-400 transition flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-800/50 hover:bg-gray-700"
+            >
+              <Edit className="w-3 h-3 flex-shrink-0" /> 编辑
+            </button>
+          </div>
+          
+          <div className="text-xs text-gray-300 bg-black/30 p-2 rounded-lg max-h-24 overflow-y-auto whitespace-pre-wrap font-mono scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
+             {learningProgress[key].content || '暂无详细学习记录。'}
+          </div>
+
+          <p className="text-[10px] text-gray-500 mt-1 text-right">上次更新: {learningProgress[key].lastUpdate}</p>
+        </div>
+      ))}
+
+      {editingSubject && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[110] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-gray-900 border border-cyan-500/30 rounded-2xl p-6 max-w-lg w-full shadow-2xl">
+            <h3 className="text-lg font-bold text-white mb-4">编辑: {SUBJECT_CONFIG[editingSubject].name} 学习内容</h3>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">学习内容详情（可换行，最多 5000 字）</label>
+            <textarea 
+              value={tempContent} 
+              onChange={(e) => setTempContent(e.target.value)}
+              className="w-full bg-black/50 border border-gray-700 rounded-xl p-3 text-white font-mono mb-4 min-h-[200px] resize-none text-sm"
+              autoFocus
+            />
+            <div className="flex gap-3">
+              <button onClick={() => setEditingSubject(null)} className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium py-2.5 rounded-lg transition-colors">取消</button>
+              <button onClick={() => saveEdit(editingSubject)} className="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2.5 rounded-lg transition-colors">保存</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
 // 历史记录查看组件
@@ -687,8 +718,6 @@ const [todayStats, setTodayStats] = useState({ date: getTodayDateString(), study
  
   
   // AI 设置状态
-  const [editingSubject, setEditingSubject] = useState(null);
-  const [editContent, setEditContent] = useState('');
   const [apiKey, setApiKey] = useState(''); 
   const [apiBaseUrl, setApiBaseUrl] = useState('https://api.siliconflow.cn/v1'); 
   const [apiModel, setApiModel] = useState('deepseek-ai/DeepSeek-R1');
@@ -1110,8 +1139,6 @@ if (storedTimerState.isActive && storedTimerState.timestamp) {
       return updated;
     });
   };
-
-  
 
   const saveAISettings = (key, baseUrl, model, provider, persona, modelList = availableModels) => {
     setApiKey(key); setApiBaseUrl(baseUrl); setApiModel(model); setSelectedProvider(provider); setCustomPersona(persona); setAvailableModels(modelList);
@@ -2412,14 +2439,11 @@ ${todayLogDetails}`;
               查看历史记录
             </button>
 
-            <LearningProgressPanel 
-  learningProgress={learningProgress} 
-  onEdit={(key, content) => {
-  setEditingSubject(key);
-  setEditContent(content || ''); 
-}}
-  isMobileView={false} 
-/>
+            <LearningProgressPanel 
+              learningProgress={learningProgress} 
+              onProgressUpdate={handleProgressUpdate}
+              isMobileView={false}
+            />
 
             <div className={`rounded-xl p-3 md:p-4 border-l-4 ${stage.borderColor} ${stage.bg} relative overflow-hidden z-0 flex-shrink-0`}>
               <div className="flex items-center gap-2 mb-1 relative z-10"><Target className={`w-4 h-4 ${stage.color}`} /><span className={`text-xs font-bold ${stage.color} tracking-widest uppercase`}>STAGE: {stage.name}</span></div>
@@ -2531,14 +2555,11 @@ ${todayLogDetails}`;
             </div>
           </div>
 
-          <LearningProgressPanel 
-  learningProgress={learningProgress} 
- onEdit={(key, content) => {
-  setEditingSubject(key);
-  setEditContent(content || ''); 
-}}
-  isMobileView={true} 
-/>
+          <LearningProgressPanel 
+            learningProgress={learningProgress} 
+            onProgressUpdate={handleProgressUpdate}
+            isMobileView={true}
+          />
           
           <div className="bg-[#111116] rounded-xl p-4 border border-gray-800">
             <div className="flex items-center gap-2 mb-3">
@@ -3381,43 +3402,6 @@ ${todayLogDetails}`;
             </div>
           </div>
       )}
-      {editingSubject && SUBJECT_CONFIG[editingSubject] && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[110] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-gray-900 border border-cyan-500/30 rounded-2xl p-6 max-w-lg w-full shadow-2xl">
-            <h3 className="text-lg font-bold text-white mb-4">
-              编辑: {SUBJECT_CONFIG[editingSubject].name} 学习内容
-            </h3>
-            
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-              学习内容详情（可换行，最多 5000 字）
-            </label>
-            
-            <textarea 
-              value={editContent || ''}  // 双重保险：确保这里永远有值
-              onChange={(e) => setEditContent(e.target.value)}
-              className="w-full bg-black/50 border border-gray-700 rounded-xl p-3 text-white font-mono mb-4 min-h-[200px] resize-none text-sm focus:border-cyan-500 outline-none"
-              autoFocus
-              placeholder="请输入当前的学习进度..."
-            />
-            
-            <div className="flex gap-3">
-              <button 
-                onClick={() => setEditingSubject(null)} 
-                className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium py-2.5 rounded-lg transition-colors"
-              >
-                取消
-              </button>
-              <button 
-                onClick={saveSubjectProgress} 
-                className="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2.5 rounded-lg transition-colors"
-              >
-                保存
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      
     </div>
   );
 }
