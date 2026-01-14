@@ -282,7 +282,7 @@ const LearningProgressPanel = ({ learningProgress, onEdit }) => { // 1. 参数�
             <span className={`font-semibold ${config.color}`}>{config.name}</span>
             <button 
               // 2. 点击直接调用父组件方法
-              onClick={() => onEdit(key, learningProgress[key].content)} 
+              onClick={() => onEdit(key, learningProgress[key]?.content)}
               className="text-gray-500 hover:text-cyan-400 transition flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-800/50 hover:bg-gray-700"
             >
               <Edit className="w-3 h-3 flex-shrink-0" /> 编辑
@@ -2414,11 +2414,10 @@ ${todayLogDetails}`;
 
             <LearningProgressPanel 
   learningProgress={learningProgress} 
-  // 将原来的 onProgressUpdate={...} 替换为：
   onEdit={(key, content) => {
-    setEditingSubject(key);
-    setEditContent(content);
-  }}
+  setEditingSubject(key);
+  setEditContent(content || ''); 
+}}
   isMobileView={false} 
 />
 
@@ -2534,11 +2533,10 @@ ${todayLogDetails}`;
 
           <LearningProgressPanel 
   learningProgress={learningProgress} 
-  // 将原来的 onProgressUpdate={...} 替换为：
-  onEdit={(key, content) => {
-    setEditingSubject(key);
-    setEditContent(content);
-  }}
+ onEdit={(key, content) => {
+  setEditingSubject(key);
+  setEditContent(content || ''); 
+}}
   isMobileView={true} 
 />
           
@@ -3383,20 +3381,38 @@ ${todayLogDetails}`;
             </div>
           </div>
       )}
-      {editingSubject && (
+      {editingSubject && SUBJECT_CONFIG[editingSubject] && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[110] flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-gray-900 border border-cyan-500/30 rounded-2xl p-6 max-w-lg w-full shadow-2xl">
-            <h3 className="text-lg font-bold text-white mb-4">编辑: {SUBJECT_CONFIG[editingSubject].name} 学习内容</h3>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">学习内容详情（可换行，最多 5000 字）</label>
+            <h3 className="text-lg font-bold text-white mb-4">
+              编辑: {SUBJECT_CONFIG[editingSubject].name} 学习内容
+            </h3>
+            
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+              学习内容详情（可换行，最多 5000 字）
+            </label>
+            
             <textarea 
-              value={editContent} 
+              value={editContent || ''}  // 双重保险：确保这里永远有值
               onChange={(e) => setEditContent(e.target.value)}
-              className="w-full bg-black/50 border border-gray-700 rounded-xl p-3 text-white font-mono mb-4 min-h-[200px] resize-none text-sm"
+              className="w-full bg-black/50 border border-gray-700 rounded-xl p-3 text-white font-mono mb-4 min-h-[200px] resize-none text-sm focus:border-cyan-500 outline-none"
               autoFocus
+              placeholder="请输入当前的学习进度..."
             />
+            
             <div className="flex gap-3">
-              <button onClick={() => setEditingSubject(null)} className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium py-2.5 rounded-lg transition-colors">取消</button>
-              <button onClick={saveSubjectProgress} className="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2.5 rounded-lg transition-colors">保存</button>
+              <button 
+                onClick={() => setEditingSubject(null)} 
+                className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium py-2.5 rounded-lg transition-colors"
+              >
+                取消
+              </button>
+              <button 
+                onClick={saveSubjectProgress} 
+                className="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2.5 rounded-lg transition-colors"
+              >
+                保存
+              </button>
             </div>
           </div>
         </div>
