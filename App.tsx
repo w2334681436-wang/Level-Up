@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Play, Pause, Square, RotateCcw,  BookOpen, Coffee, Save, 
@@ -309,28 +310,28 @@ const LearningProgressPanel = ({ learningProgress, onProgressUpdate, isMobileVie
         </div>
       ))}
 
-      {editingSubject && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[110] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-gray-900 border border-cyan-500/30 rounded-2xl p-6 max-w-lg w-full shadow-2xl">
-            <h3 className="text-lg font-bold text-white mb-4">编辑: {SUBJECT_CONFIG[editingSubject].name} 学习内容</h3>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">学习内容详情（可换行，最多 5000 字）</label>
-            <textarea 
-              value={tempContent} 
-              onChange={(e) => setTempContent(e.target.value)}
-              className="w-full bg-black/50 border border-gray-700 rounded-xl p-3 text-white font-mono mb-4 min-h-[200px] resize-none text-sm"
-              autoFocus
-            />
-            <div className="flex gap-3">
-              <button onClick={() => setEditingSubject(null)} className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium py-2.5 rounded-lg transition-colors">取消</button>
-              <button onClick={() => saveEdit(editingSubject)} className="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2.5 rounded-lg transition-colors">保存</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+      {editingSubject && createPortal(
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-gray-900 border border-cyan-500/30 rounded-2xl p-6 max-w-lg w-full shadow-2xl">
+            <h3 className="text-lg font-bold text-white mb-4">编辑: {SUBJECT_CONFIG[editingSubject].name} 学习内容</h3>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">学习内容详情（可换行，最多 5000 字）</label>
+            <textarea 
+              value={tempContent} 
+              onChange={(e) => setTempContent(e.target.value)}
+              className="w-full bg-black/50 border border-gray-700 rounded-xl p-3 text-white font-mono mb-4 min-h-[200px] resize-none text-sm"
+              autoFocus
+            />
+            <div className="flex gap-3">
+              <button onClick={() => setEditingSubject(null)} className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium py-2.5 rounded-lg transition-colors">取消</button>
+              <button onClick={() => saveEdit(editingSubject)} className="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2.5 rounded-lg transition-colors">保存</button>
+            </div>
+          </div>
+        </div>,
+        document.body // 👈 这里指定传送的目标是 body
+      )}
+    </div>
+  );
 };
-
 // 历史记录查看组件
 const HistoryView = ({ history, isOpen, onClose }) => {
   const [selectedDate, setSelectedDate] = useState(getTodayDateString());
